@@ -1,0 +1,87 @@
+export type Role = "gerant" | "proprietaire";
+
+export type StatutReservation = "en_attente" | "confirmee" | "terminee" | "annulee";
+
+export interface Logement {
+  id: string;
+  nom: string;
+  type: "appartement" | "studio";
+  disposition: string;
+  tarif_nuit: number;
+  statut: "disponible" | "occupe" | "maintenance";
+  equipements?: string[] | undefined;
+  photos?: string[] | undefined;
+  statut_jour?: "disponible" | "occupe" | undefined;
+}
+
+export interface Client {
+  id: string;
+  nom_complet: string;
+  telephone: string;
+  filiation?: string | undefined;
+  lieu_naissance?: string | undefined;
+  date_naissance?: string | undefined;
+  nationalite?: string | undefined;
+  profession?: string | undefined;
+  employeur?: string | undefined;
+  residence_cameroun?: string | undefined;
+  domicile_etranger?: string | undefined;
+  piece_identite_1?: string | undefined;
+  piece_identite_2?: string | undefined;
+  etat_civil?: string | undefined;
+}
+
+export interface Paiement {
+  id: string;
+  reservation_id: string;
+  montant: number;
+  date_paiement: string;
+  agent: string;
+}
+
+export interface Reservation {
+  id: string;
+  logement_id: string;
+  client_id: string;
+  client_nom: string;
+  client_telephone: string;
+  nombre_personnes?: number | undefined;
+  date_arrivee: string;
+  date_depart: string;
+  motif?: string | undefined;
+  provenance?: string | undefined;
+  destination?: string | undefined;
+  statut: StatutReservation;
+  montant_total: number;
+  montant_paye: number;
+  montant_restant: number;
+  agent: string;
+  paiements?: Paiement[] | undefined;
+}
+
+export interface DashboardStats {
+  chiffre_affaires: number;
+  taux_occupation: number;
+  reservations_actives: number;
+  arrivees_jour: number;
+  departs_jour: number;
+  fonds_en_attente: number;
+  revenus: { periode: string; montant: number }[];
+  occupation_par_logement: { logement: string; taux: number }[];
+}
+
+export interface Dette {
+  reservation_id: string;
+  logement: string;
+  client: string;
+  telephone: string;
+  montant_du: number;
+  date_arrivee: string;
+  date_depart: string;
+}
+
+export interface ClientStat {
+  client: Client;
+  nombre_reservations: number;
+  jours_cumules: number;
+}
