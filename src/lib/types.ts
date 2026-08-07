@@ -9,26 +9,26 @@ export interface Logement {
   disposition: string;
   tarif_nuit: number;
   statut: "disponible" | "occupe" | "maintenance";
-  equipements?: string[];
-  photos?: string[];
-  statut_jour?: "disponible" | "occupe";
+  equipements?: string[] | undefined;
+  photos?: string[] | undefined;
+  statut_jour?: "disponible" | "occupe" | undefined;
 }
 
 export interface Client {
   id: string;
   nom_complet: string;
   telephone: string;
-  filiation?: string;
-  lieu_naissance?: string;
-  date_naissance?: string;
-  nationalite?: string;
-  profession?: string;
-  employeur?: string;
-  residence_cameroun?: string;
-  domicile_etranger?: string;
-  piece_identite_1?: string;
-  piece_identite_2?: string;
-  etat_civil?: string;
+  filiation?: string | undefined;
+  lieu_naissance?: string | undefined;
+  date_naissance?: string | undefined;
+  nationalite?: string | undefined;
+  profession?: string | undefined;
+  employeur?: string | undefined;
+  residence_cameroun?: string | undefined;
+  domicile_etranger?: string | undefined;
+  piece_identite_1?: string | undefined;
+  piece_identite_2?: string | undefined;
+  etat_civil?: string | undefined;
 }
 
 export interface Paiement {
@@ -45,18 +45,18 @@ export interface Reservation {
   client_id: string;
   client_nom: string;
   client_telephone: string;
-  nombre_personnes?: number;
+  nombre_personnes?: number | undefined;
   date_arrivee: string;
   date_depart: string;
-  motif?: string;
-  provenance?: string;
-  destination?: string;
+  motif?: string | undefined;
+  provenance?: string | undefined;
+  destination?: string | undefined;
   statut: StatutReservation;
   montant_total: number;
   montant_paye: number;
   montant_restant: number;
   agent: string;
-  paiements?: Paiement[];
+  paiements?: Paiement[] | undefined;
 }
 
 export interface DashboardStats {

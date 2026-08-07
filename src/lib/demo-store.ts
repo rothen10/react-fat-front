@@ -126,8 +126,8 @@ function seed() {
   ];
 
   plans.forEach(([li, off, n, statut, ratio], i) => {
-    const logement = db.logements[li];
-    const client = db.clients[i % db.clients.length];
+    const logement = db.logements[li]!;
+    const client = db.clients[i % db.clients.length]!;
     const arrivee = addDays(today, off);
     const depart = addDays(arrivee, n);
     const total = logement.tarif_nuit * n;
