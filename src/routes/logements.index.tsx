@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const Route = createFileRoute("/logements")({
+export const Route = createFileRoute("/logements/")({
   head: () => ({
     meta: [
       { title: "Logements — KN Residence" },
