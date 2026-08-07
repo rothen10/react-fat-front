@@ -1,15 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Suspense, lazy, useState } from "react";
+import { ClientOnly } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api, fcfa } from "@/lib/api";
+
+const RevenusChart = lazy(() => import("@/components/RevenusChart"));
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -143,15 +137,11 @@ function DashboardPage() {
         <div className="card-surface p-5">
           <h2 className="mb-4 text-lg font-semibold">Évolution des revenus</h2>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.revenus ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="periode" stroke="var(--color-muted-foreground)" fontSize={12} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} width={70} />
-                <Tooltip formatter={(v: number) => fcfa(v)} />
-                <Bar dataKey="montant" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ClientOnly fallback={null}>
+              <Suspense fallback={null}>
+                <RevenusChart data={stats?.revenus ?? []} />
+              </Suspense>
+            </ClientOnly>
           </div>
         </div>
 
