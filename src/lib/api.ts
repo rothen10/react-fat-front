@@ -25,6 +25,13 @@ export const API_URL = (import.meta.env["VITE_API_URL"] as string) ?? "http://lo
 /** Vrai lorsque l'API locale n'a pas répondu : l'app bascule sur les données de démo. */
 export let apiOffline = false;
 
+/** Erreur renvoyée par l'API (par opposition à une panne réseau). */
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
 /** Certaines routes NestJS renvoient { data: [...] } ou { items: [...] }. */
 function unwrap<T>(payload: unknown): T {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
@@ -45,7 +52,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new HttpError(res.status, `${res.status} ${res.statusText}`);
   apiOffline = false;
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -260,9 +267,8 @@ export const api = {
       () => demoApi.clientsStats(),
     ) as Promise<ClientStat[]>,
 
-  login: (email: string, password: string) =>
-    withFallback(
-      async () => {
+  login: async (email: string, password: string) => {
+    try {
         const r = await req<{
           token?: string;
           access_token?: string;
@@ -277,15 +283,19 @@ export const api = {
           role: (r.role ?? r.user?.role ?? "gerant") as "gerant" | "proprietaire",
           nom_complet: r.nom_complet ?? r.user?.nom ?? email.split("@")[0],
         };
-      },
-      () => ({
+    } catch (e) {
+      // Identifiants refusés par l'API : on ne bascule pas en démo.
+      if (e instanceof HttpError) throw e;
+      apiOffline = true;
+      return {
         token: "demo-token",
         role: email.toLowerCase().startsWith("proprietaire")
           ? ("proprietaire" as const)
           : ("gerant" as const),
         nom_complet: email.split("@")[0] ?? "Utilisateur",
-      }),
-    ),
+      };
+    }
+  },
 };
 
 export const fcfa = (n: number) =>
