@@ -77,13 +77,27 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi titre="Chiffre d'affaires" valeur={stats ? fcfa(stats.chiffre_affaires) : "—"} />
-        <Kpi titre="Taux d'occupation" valeur={stats ? `${stats.taux_occupation} %` : "—"} />
-        <Kpi titre="Réservations actives" valeur={stats ? String(stats.reservations_actives) : "—"} />
+        <Kpi
+          titre="Chiffre d'affaires"
+          valeur={stats ? fcfa(stats.chiffre_affaires) : "—"}
+          icon={Wallet}
+        />
+        <Kpi
+          titre="Taux d'occupation"
+          valeur={stats ? `${stats.taux_occupation} %` : "—"}
+          icon={PieChart}
+        />
+        <Kpi
+          titre="Réservations actives"
+          valeur={stats ? String(stats.reservations_actives) : "—"}
+          icon={CalendarCheck}
+        />
         <Kpi
           titre="Arrivées / départs du jour"
           valeur={stats ? `${stats.arrivees_jour} / ${stats.departs_jour}` : "—"}
+          icon={ArrowRightLeft}
         />
+
       </div>
 
       <button
