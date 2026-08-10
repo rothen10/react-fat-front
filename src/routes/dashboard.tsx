@@ -189,11 +189,17 @@ function DashboardPage() {
   );
 }
 
-function Kpi({ titre, valeur }: { titre: string; valeur: string }) {
+function Kpi({ titre, valeur, icon: Icon }: { titre: string; valeur: string; icon: LucideIcon }) {
   return (
-    <div className="card-surface p-5">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{titre}</p>
-      <p className="mt-2 font-display text-2xl font-semibold">{valeur}</p>
+    <div className="card-surface surface-soft flex items-start gap-4 p-5 transition-shadow hover:shadow-raised">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{titre}</p>
+        <p className="mt-1 truncate font-display text-2xl font-semibold">{valeur}</p>
+      </div>
     </div>
   );
+
 }
