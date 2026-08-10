@@ -172,3 +172,19 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
 }
+
+@utility panel-hero {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-sidebar) 0%,
+    color-mix(in oklab, var(--color-primary) 70%, var(--color-sidebar)) 100%
+  );
+}
+
+@utility surface-soft {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-secondary) 60%, var(--color-card)) 0%,
+    var(--color-card) 60%
+  );
+}
