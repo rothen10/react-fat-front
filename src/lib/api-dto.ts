@@ -1,76 +1,36 @@
 /**
  * Contrats renvoyés par l'API NestJS KN Résidence (http://localhost:3001/api)
  * et adaptateurs vers les types internes de l'interface.
+ *
+ * L'API expose ses champs en camelCase (Prisma) mais certaines routes
+ * renvoient encore du snake_case : les lecteurs ci-dessous acceptent les deux.
  */
-import type { Client, ClientStat, DashboardStats, Dette, Logement, Paiement, Reservation, StatutReservation } from "./types";
+import type {
+  Client,
+  ClientStat,
+  DashboardStats,
+  Dette,
+  Logement,
+  Paiement,
+  Reservation,
+  StatutReservation,
+} from "./types";
 
-export interface ApiLogement {
-  id: string;
-  nom: string;
-  type: string;
-  disposition?: string | null;
-  tarif_nuit: number | string;
-  statut?: string | null;
-  equipements?: string[] | null;
-  photos?: string[] | null;
-  disponible?: boolean | null;
-  statut_jour?: string | null;
-}
+export type Brut = Record<string, unknown>;
+export type ApiLogement = Brut;
+export type ApiClient = Brut;
+export type ApiPaiement = Brut;
+export type ApiReservation = Brut;
+export type ApiDashboard = Brut;
 
-export interface ApiClient {
-  id: string;
-  nom?: string | null;
-  nom_complet?: string | null;
-  cni?: string | null;
-  telephone?: string | null;
-  email?: string | null;
-  adresse?: string | null;
-  nationalite?: string | null;
-  profession?: string | null;
-}
-
-export interface ApiPaiement {
-  id: string;
-  reservation_id: string;
-  montant: number | string;
-  mode?: string | null;
-  statut?: string | null;
-  date_paiement?: string | null;
-  reference?: string | null;
-  created_at?: string | null;
-}
-
-export interface ApiReservation {
-  id: string;
-  logement_id: string;
-  client_id: string;
-  logement?: ApiLogement | null;
-  client?: ApiClient | null;
-  date_arrivee: string;
-  date_depart: string;
-  nombre_nuits?: number | null;
-  tarif_nuit?: number | string | null;
-  montant_total?: number | string | null;
-  montant_paye?: number | string | null;
-  montant_restant?: number | string | null;
-  statut?: string | null;
-  notes?: string | null;
-  paiements?: ApiPaiement[] | null;
-}
-
-export interface ApiDashboard {
-  chiffre_affaires?: number | string | null;
-  total_reservations?: number | null;
-  nombre_reservations?: number | null;
-  total_logements?: number | null;
-  total_clients?: number | null;
-  fonds_en_attente?: number | string | null;
-  reservations_par_statut?: Record<string, number> | null;
-  taux_occupation?: number | null;
-  occupation?: { logement?: string; nom?: string; taux?: number; occupe?: boolean }[] | null;
-  logements_occupes?: number | null;
-  logements_disponibles?: number | null;
-  revenus?: { periode?: string; mois?: string; montant?: number | string }[] | null;
+/** Première clé présente et non nulle parmi les alias fournis. */
+function pick(o: Brut | null | undefined, ...keys: string[]): unknown {
+  if (!o) return undefined;
+  for (const k of keys) {
+    const v = o[k];
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
 }
 
 const num = (v: unknown): number => {
@@ -78,54 +38,73 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const jour = (v?: string | null): string => (v ? String(v).slice(0, 10) : "");
+const str = (v: unknown, def = ""): string => (v == null ? def : String(v));
+
+const jour = (v: unknown): string => (v ? String(v).slice(0, 10) : "");
 
 export const nuitsEntre = (a: string, b: string) =>
   Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000));
 
+/** Traduit la période de l'interface vers le paramètre `period` de l'API. */
+export const periodeApi = (p: string): "day" | "week" | "month" | "year" =>
+  p === "jour" ? "day" : p === "semaine" ? "week" : p === "annee" ? "year" : "month";
+
 export function mapLogement(l: ApiLogement): Logement {
-  const statut = (l.statut ?? "disponible") as Logement["statut"];
-  const jourStatut =
-    l.statut_jour === "occupe" || l.disponible === false || statut === "occupe"
+  const statut = str(pick(l, "statut", "status"), "disponible").toLowerCase();
+  const type = str(pick(l, "type"), "studio").toLowerCase();
+  const dispo = pick(l, "disponible", "estDisponible");
+  const statutJour =
+    dispo === false || statut === "occupe" || pick(l, "statut_jour", "statutJour") === "occupe"
       ? "occupe"
       : "disponible";
+  const equipements = pick(l, "equipements", "equipments");
   return {
-    id: l.id,
-    nom: l.nom,
-    type: l.type === "appartement" ? "appartement" : "studio",
-    disposition: l.disposition ?? "",
-    tarif_nuit: num(l.tarif_nuit),
-    statut: ["disponible", "occupe", "maintenance"].includes(statut) ? statut : "disponible",
-    equipements: l.equipements ?? undefined,
-    photos: l.photos ?? undefined,
-    statut_jour: jourStatut,
+    id: str(pick(l, "id")),
+    nom: str(pick(l, "nom", "name"), "—"),
+    type: type.startsWith("appart") ? "appartement" : "studio",
+    disposition: str(pick(l, "disposition", "description")),
+    tarif_nuit: num(pick(l, "tarifNuit", "tarif_nuit", "prixNuit")),
+    statut: (["disponible", "occupe", "maintenance"].includes(statut)
+      ? statut
+      : "disponible") as Logement["statut"],
+    equipements: Array.isArray(equipements) ? (equipements as string[]) : undefined,
+    photos: Array.isArray(l["photos"]) ? (l["photos"] as string[]) : undefined,
+    statut_jour: statutJour,
   };
 }
 
 export function mapClient(c: ApiClient): Client {
   return {
-    id: c.id,
-    nom_complet: c.nom_complet ?? c.nom ?? "—",
-    telephone: c.telephone ?? "",
-    piece_identite_1: c.cni ?? undefined,
-    nationalite: c.nationalite ?? undefined,
-    profession: c.profession ?? undefined,
-    residence_cameroun: c.adresse ?? undefined,
+    id: str(pick(c, "id")),
+    nom_complet: str(pick(c, "nomPrenoms", "nom_complet", "nom", "name"), "—"),
+    telephone: str(pick(c, "telephone", "phone")),
+    piece_identite_1: pick(c, "cni", "numeroPiece", "piece_identite_1")
+      ? str(pick(c, "cni", "numeroPiece", "piece_identite_1"))
+      : undefined,
+    date_naissance: pick(c, "dateNaissance", "date_naissance")
+      ? jour(pick(c, "dateNaissance", "date_naissance"))
+      : undefined,
+    nationalite: pick(c, "nationalite") ? str(pick(c, "nationalite")) : undefined,
+    profession: pick(c, "profession") ? str(pick(c, "profession")) : undefined,
+    residence_cameroun: pick(c, "adresse", "residence")
+      ? str(pick(c, "adresse", "residence"))
+      : undefined,
   };
 }
 
 export function mapPaiement(p: ApiPaiement): Paiement {
+  const mode = str(pick(p, "mode"), "especes");
   return {
-    id: p.id,
-    reservation_id: p.reservation_id,
-    montant: num(p.montant),
-    date_paiement: jour(p.date_paiement ?? p.created_at),
-    agent: p.mode ? `Espèces (${p.mode})` : "—",
+    id: str(pick(p, "id")),
+    reservation_id: str(pick(p, "reservationId", "reservation_id")),
+    montant: num(pick(p, "montant")),
+    date_paiement: jour(pick(p, "datePaiement", "date_paiement", "createdAt", "created_at")),
+    agent: mode === "especes" ? "Espèces" : mode,
   };
 }
 
-function mapStatut(s?: string | null, dateDepart?: string): StatutReservation {
-  const v = (s ?? "en_attente").toLowerCase();
+function mapStatut(s: unknown, dateDepart?: string): StatutReservation {
+  const v = str(s, "en_attente").toLowerCase().replace(/[\s-]/g, "_");
   if (v.startsWith("annul")) return "annulee";
   if (v.startsWith("termin")) return "terminee";
   if (v.startsWith("confirm")) {
@@ -136,28 +115,38 @@ function mapStatut(s?: string | null, dateDepart?: string): StatutReservation {
 }
 
 export function mapReservation(r: ApiReservation): Reservation {
-  const paiements = (r.paiements ?? []).map(mapPaiement);
-  const arrivee = jour(r.date_arrivee);
-  const depart = jour(r.date_depart);
-  const nuits = r.nombre_nuits ?? nuitsEntre(arrivee, depart);
-  const total = r.montant_total != null ? num(r.montant_total) : num(r.tarif_nuit) * nuits;
-  const paye =
-    r.montant_paye != null ? num(r.montant_paye) : paiements.reduce((s, p) => s + p.montant, 0);
+  const rawPaiements = pick(r, "paiements", "payments");
+  const paiements = (Array.isArray(rawPaiements) ? (rawPaiements as Brut[]) : []).map(mapPaiement);
+  const arrivee = jour(pick(r, "dateDebut", "date_arrivee", "dateArrivee", "date_debut"));
+  const depart = jour(pick(r, "dateFin", "date_depart", "dateDepart", "date_fin"));
+  const nuits = num(pick(r, "nombreNuits", "nombre_nuits")) || nuitsEntre(arrivee, depart);
+  const tarif = num(pick(r, "tarifNuit", "tarif_nuit"));
+  const total = num(pick(r, "montantTotal", "montant_total")) || tarif * nuits;
+  const payeApi = pick(r, "montantPaye", "montant_paye", "totalPaye");
+  const paye = payeApi != null ? num(payeApi) : paiements.reduce((s, p) => s + p.montant, 0);
+  const restantApi = pick(r, "montantRestant", "montant_restant", "solde", "resteAPayer");
+  const client = (pick(r, "client") as Brut | undefined) ?? undefined;
+  const logement = (pick(r, "logement") as Brut | undefined) ?? undefined;
+
   return {
-    id: r.id,
-    logement_id: r.logement_id,
-    client_id: r.client_id,
-    client_nom: r.client?.nom_complet ?? r.client?.nom ?? "—",
-    client_telephone: r.client?.telephone ?? "",
+    id: str(pick(r, "id")),
+    logement_id: str(pick(r, "logementId", "logement_id") ?? pick(logement, "id")),
+    client_id: str(pick(r, "clientId", "client_id") ?? pick(client, "id")),
+    client_nom: str(pick(client, "nomPrenoms", "nom_complet", "nom"), "—"),
+    client_telephone: str(pick(client, "telephone")),
+    nombre_personnes: pick(r, "personnes", "nombrePersonnes")
+      ? num(pick(r, "personnes", "nombrePersonnes"))
+      : undefined,
     date_arrivee: arrivee,
     date_depart: depart,
-    motif: r.notes ?? undefined,
-    statut: mapStatut(r.statut, depart),
+    motif: pick(r, "motif", "notes") ? str(pick(r, "motif", "notes")) : undefined,
+    provenance: pick(r, "provenance") ? str(pick(r, "provenance")) : undefined,
+    destination: pick(r, "destination") ? str(pick(r, "destination")) : undefined,
+    statut: mapStatut(pick(r, "statut", "status"), depart),
     montant_total: total,
     montant_paye: paye,
-    montant_restant:
-      r.montant_restant != null ? num(r.montant_restant) : Math.max(0, total - paye),
-    agent: "—",
+    montant_restant: restantApi != null ? num(restantApi) : Math.max(0, total - paye),
+    agent: str(pick(r, "agent"), "—"),
     paiements,
   };
 }
@@ -188,7 +177,7 @@ export function mapClientsStats(clients: Client[], reservations: Reservation[]):
   });
 }
 
-/** Complète les indicateurs manquants de l'API à partir des réservations réelles. */
+/** GET /api/dashboard/summary complété par les agrégations manquantes. */
 export function mapDashboard(
   d: ApiDashboard,
   reservations: Reservation[],
@@ -198,11 +187,12 @@ export function mapDashboard(
   const today = new Date().toISOString().slice(0, 10);
   const actives = reservations.filter((r) => r.statut === "confirmee" || r.statut === "en_attente");
 
+  const revenusParLogement = pick(d, "revenusParLogement", "revenus_par_logement", "occupation");
   const occupation =
-    d.occupation && d.occupation.length
-      ? d.occupation.map((o) => ({
-          logement: o.logement ?? o.nom ?? "—",
-          taux: Math.round(o.taux ?? (o.occupe ? 100 : 0)),
+    Array.isArray(revenusParLogement) && revenusParLogement.length
+      ? (revenusParLogement as Brut[]).map((o) => ({
+          logement: str(pick(o, "logement", "nom"), "—"),
+          taux: Math.round(num(pick(o, "taux", "tauxOccupation")) || (o["occupe"] ? 100 : 0)),
         }))
       : logements.map((l) => {
           const jours = reservations
@@ -212,9 +202,13 @@ export function mapDashboard(
           return { logement: l.nom, taux: Math.min(100, Math.round((jours / fenetre) * 100)) };
         });
 
+  const revenusApi = pick(d, "revenus", "revenusParPeriode");
   const revenus =
-    d.revenus && d.revenus.length
-      ? d.revenus.map((r) => ({ periode: r.periode ?? r.mois ?? "", montant: num(r.montant) }))
+    Array.isArray(revenusApi) && revenusApi.length
+      ? (revenusApi as Brut[]).map((r) => ({
+          periode: str(pick(r, "periode", "mois", "label")),
+          montant: num(pick(r, "montant", "total", "chiffreAffaires")),
+        }))
       : Array.from({ length: 6 }).map((_, i) => {
           const dt = new Date();
           dt.setDate(1);
@@ -229,28 +223,28 @@ export function mapDashboard(
           };
         });
 
-  const fonds =
-    d.fonds_en_attente != null
-      ? num(d.fonds_en_attente)
-      : reservations
-          .filter((r) => r.statut !== "annulee")
-          .reduce((s, r) => s + r.montant_restant, 0);
+  const fondsApi = pick(d, "fondsEnAttente", "fonds_en_attente");
+  const caApi = pick(d, "chiffreAffaires", "chiffre_affaires", "revenusTotal");
+  const tauxApi = pick(d, "tauxOccupation", "taux_occupation");
 
   return {
     chiffre_affaires:
-      d.chiffre_affaires != null
-        ? num(d.chiffre_affaires)
-        : reservations.reduce((s, r) => s + r.montant_paye, 0),
+      caApi != null ? num(caApi) : reservations.reduce((s, r) => s + r.montant_paye, 0),
     taux_occupation:
-      d.taux_occupation != null
-        ? Math.round(d.taux_occupation)
+      tauxApi != null
+        ? Math.round(num(tauxApi))
         : Math.round(occupation.reduce((s, o) => s + o.taux, 0) / (occupation.length || 1)),
     reservations_actives: actives.length,
     arrivees_jour: reservations.filter((r) => r.date_arrivee === today && r.statut !== "annulee")
       .length,
     departs_jour: reservations.filter((r) => r.date_depart === today && r.statut !== "annulee")
       .length,
-    fonds_en_attente: fonds,
+    fonds_en_attente:
+      fondsApi != null
+        ? num(fondsApi)
+        : reservations
+            .filter((r) => r.statut !== "annulee")
+            .reduce((s, r) => s + r.montant_restant, 0),
     revenus,
     occupation_par_logement: occupation,
   };
