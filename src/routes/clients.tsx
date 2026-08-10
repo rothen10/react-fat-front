@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -51,12 +52,15 @@ function ClientsPage() {
             Fiches réutilisables d'un séjour à l'autre : recherchez un client par nom ou téléphone.
           </p>
         </div>
-        <Input
-          placeholder="Rechercher un client…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-full sm:w-72"
-        />
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un client…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
 
       <div className="card-surface overflow-x-auto p-2">
@@ -71,9 +75,29 @@ function ClientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {filtres.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                  Aucun client ne correspond à cette recherche.
+                </TableCell>
+              </TableRow>
+            ) : null}
             {filtres.map((c) => (
               <TableRow key={c.client.id}>
-                <TableCell className="font-medium">{c.client.nom_complet}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {c.client.nom_complet
+                        .split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((m) => m[0])
+                        .join("")
+                        .toUpperCase()}
+                    </span>
+                    {c.client.nom_complet}
+                  </span>
+                </TableCell>
                 <TableCell>{c.client.telephone}</TableCell>
                 <TableCell>{c.client.nationalite ?? "—"}</TableCell>
                 <TableCell className="text-right">{c.nombre_reservations}</TableCell>
