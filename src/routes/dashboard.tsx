@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useState } from "react";
+import {
+  ArrowRightLeft,
+  CalendarCheck,
+  PieChart,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
 import { ClientOnly } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
