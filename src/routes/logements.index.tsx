@@ -79,12 +79,18 @@ function LogementsPage() {
               key={l.id}
               to="/logements/$id"
               params={{ id: l.id }}
-              className="card-surface group flex flex-col overflow-hidden transition-shadow hover:shadow-raised"
+              className="card-surface group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-raised"
             >
-              <div className="flex h-32 items-end bg-sidebar p-4">
-                <span className="font-display text-2xl text-sidebar-foreground">{l.nom}</span>
+              <div className="panel-hero relative flex h-32 items-end p-4">
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-sidebar-primary/25 blur-2xl transition-opacity group-hover:opacity-90"
+                />
+                <span className="relative font-display text-2xl text-sidebar-foreground">
+                  {l.nom}
+                </span>
               </div>
-              <div className="flex flex-1 flex-col gap-3 p-4">
+              <div className="surface-soft flex flex-1 flex-col gap-3 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="secondary" className="capitalize">
                     {l.type}
@@ -96,6 +102,9 @@ function LogementsPage() {
                         : "bg-status-solde/25 text-foreground"
                     }
                   >
+                    <span
+                      className={`mr-1.5 inline-block size-1.5 rounded-full ${l.statut_jour === "occupe" ? "bg-status-du" : "bg-status-solde"}`}
+                    />
                     {l.statut_jour === "occupe" ? "Occupé" : "Disponible"}
                   </Badge>
                 </div>
@@ -107,6 +116,7 @@ function LogementsPage() {
               </div>
             </Link>
           ))}
+
         </div>
       )}
     </AppShell>

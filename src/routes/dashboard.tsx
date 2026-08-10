@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useState } from "react";
+import {
+  ArrowRightLeft,
+  CalendarCheck,
+  PieChart,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
 import { ClientOnly } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -77,13 +85,27 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi titre="Chiffre d'affaires" valeur={stats ? fcfa(stats.chiffre_affaires) : "—"} />
-        <Kpi titre="Taux d'occupation" valeur={stats ? `${stats.taux_occupation} %` : "—"} />
-        <Kpi titre="Réservations actives" valeur={stats ? String(stats.reservations_actives) : "—"} />
+        <Kpi
+          titre="Chiffre d'affaires"
+          valeur={stats ? fcfa(stats.chiffre_affaires) : "—"}
+          icon={Wallet}
+        />
+        <Kpi
+          titre="Taux d'occupation"
+          valeur={stats ? `${stats.taux_occupation} %` : "—"}
+          icon={PieChart}
+        />
+        <Kpi
+          titre="Réservations actives"
+          valeur={stats ? String(stats.reservations_actives) : "—"}
+          icon={CalendarCheck}
+        />
         <Kpi
           titre="Arrivées / départs du jour"
           valeur={stats ? `${stats.arrivees_jour} / ${stats.departs_jour}` : "—"}
+          icon={ArrowRightLeft}
         />
+
       </div>
 
       <button
@@ -167,11 +189,17 @@ function DashboardPage() {
   );
 }
 
-function Kpi({ titre, valeur }: { titre: string; valeur: string }) {
+function Kpi({ titre, valeur, icon: Icon }: { titre: string; valeur: string; icon: LucideIcon }) {
   return (
-    <div className="card-surface p-5">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{titre}</p>
-      <p className="mt-2 font-display text-2xl font-semibold">{valeur}</p>
+    <div className="card-surface surface-soft flex items-start gap-4 p-5 transition-shadow hover:shadow-raised">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{titre}</p>
+        <p className="mt-1 truncate font-display text-2xl font-semibold">{valeur}</p>
+      </div>
     </div>
   );
+
 }

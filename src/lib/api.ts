@@ -5,6 +5,7 @@ import {
   mapDettes,
   mapLogement,
   mapReservation,
+  periodeApi,
   type ApiClient,
   type ApiDashboard,
   type ApiLogement,
@@ -27,7 +28,10 @@ export let apiOffline = false;
 
 /** Erreur renvoyée par l'API (par opposition à une panne réseau). */
 export class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -38,6 +42,7 @@ function unwrap<T>(payload: unknown): T {
     const o = payload as Record<string, unknown>;
     if (Array.isArray(o["data"])) return o["data"] as T;
     if (Array.isArray(o["items"])) return o["items"] as T;
+    if (o["data"] && typeof o["data"] === "object") return o["data"] as T;
   }
   return payload as T;
 }
@@ -52,7 +57,16 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  if (!res.ok) throw new HttpError(res.status, `${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { message?: string | string[] };
+      if (body?.message) message = Array.isArray(body.message) ? body.message[0]! : body.message;
+    } catch {
+      /* corps non JSON */
+    }
+    throw new HttpError(res.status, message);
+  }
   apiOffline = false;
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -63,56 +77,65 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 async function withFallback<T>(call: () => Promise<T>, fallback: () => T): Promise<T> {
   try {
     return await call();
-  } catch {
+  } catch (e) {
+    if (e instanceof HttpError && e.status !== 401) throw e;
     apiOffline = true;
     return fallback();
   }
 }
 
-async function fetchReservations(params?: Record<string, string>): Promise<Reservation[]> {
-  const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-  const list = await req<ApiReservation[]>(`/reservations${qs}`);
-  return (list ?? []).map(mapReservation);
+const qs = (params: Record<string, string | undefined>) => {
+  const entries = Object.entries(params).filter(([, v]) => v);
+  return entries.length
+    ? `?${new URLSearchParams(entries as [string, string][]).toString()}`
+    : "";
+};
+
+async function fetchReservations(params: Record<string, string | undefined> = {}): Promise<
+  Reservation[]
+> {
+  const list = await req<ApiReservation[]>(`/reservations${qs(params)}`);
+  return (Array.isArray(list) ? list : []).map(mapReservation);
 }
 
-async function fetchLogements(): Promise<Logement[]> {
-  const list = await req<ApiLogement[]>("/logements");
-  return (list ?? []).map(mapLogement);
+async function fetchLogements(params: Record<string, string | undefined> = {}): Promise<
+  Logement[]
+> {
+  const list = await req<ApiLogement[]>(`/logements${qs(params)}`);
+  return (Array.isArray(list) ? list : []).map(mapLogement);
 }
 
-async function fetchClients(): Promise<Client[]> {
-  const list = await req<ApiClient[]>("/clients");
-  return (list ?? []).map(mapClient);
+async function fetchClients(search?: string): Promise<Client[]> {
+  const list = await req<ApiClient[]>(`/clients${qs({ search })}`);
+  return (Array.isArray(list) ? list : []).map(mapClient);
 }
 
-/** Retrouve un client par téléphone/CNI, sinon le crée. */
+/** Retrouve un client par téléphone (recherche unifiée), sinon le crée. */
 async function ensureClient(c: {
   nom_complet: string;
   telephone: string;
   piece_identite_1?: string | undefined;
-  nationalite?: string | undefined;
-  profession?: string | undefined;
+  date_naissance?: string | undefined;
 }): Promise<string> {
   if (c.telephone) {
-    const trouves = await req<ApiClient[]>(
-      `/clients?telephone=${encodeURIComponent(c.telephone)}`,
-    ).catch(() => [] as ApiClient[]);
-    const exact = (trouves ?? []).find((x) => (x.telephone ?? "") === c.telephone);
+    const trouves = await fetchClients(c.telephone).catch(() => [] as Client[]);
+    const exact = trouves.find((x) => x.telephone === c.telephone);
     if (exact) return exact.id;
   }
   const cree = await req<ApiClient>("/clients", {
     method: "POST",
     body: JSON.stringify({
-      nom: c.nom_complet,
+      nomPrenoms: c.nom_complet,
       telephone: c.telephone,
       ...(c.piece_identite_1 ? { cni: c.piece_identite_1 } : {}),
+      ...(c.date_naissance ? { dateNaissance: c.date_naissance } : {}),
     }),
   });
-  return cree.id;
+  return mapClient(cree).id;
 }
 
 export const api = {
-  listLogements: () => withFallback(fetchLogements, () => demoApi.logements()),
+  listLogements: () => withFallback(() => fetchLogements(), () => demoApi.logements()),
 
   getLogement: (id: string) =>
     withFallback(
@@ -126,15 +149,28 @@ export const api = {
         mapLogement(
           await req<ApiLogement>(`/logements/${id}`, {
             method: "PATCH",
-            body: JSON.stringify(patch),
+            body: JSON.stringify({
+              ...(patch.nom ? { nom: patch.nom } : {}),
+              ...(patch.type ? { type: patch.type } : {}),
+              ...(patch.disposition ? { disposition: patch.disposition } : {}),
+              ...(patch.tarif_nuit != null ? { tarifNuit: patch.tarif_nuit } : {}),
+              ...(patch.statut ? { statut: patch.statut } : {}),
+              ...(patch.equipements ? { equipements: patch.equipements } : {}),
+            }),
           }),
         ),
       () => demoApi.updateLogement(id, patch) as Logement,
     ),
 
+  /** GET /logements/{id}/calendrier?month=YYYY-MM */
   calendrier: (id: string, mois: string) =>
     withFallback(
-      () => fetchReservations({ logement_id: id, mois }),
+      async () => {
+        const list = await req<ApiReservation[]>(
+          `/logements/${id}/calendrier${qs({ month: mois })}`,
+        );
+        return (Array.isArray(list) ? list : []).map(mapReservation);
+      },
       () => demoApi.reservationsLogement(id),
     ),
 
@@ -144,38 +180,40 @@ export const api = {
         const client = payload["client"] as Parameters<typeof ensureClient>[0] | undefined;
         const clientId =
           (payload["client_id"] as string | undefined) ??
-          (client
-            ? await ensureClient(client)
-            : await ensureClient({
-                nom_complet: String(payload["client_nom"] ?? "Client"),
-                telephone: String(payload["client_telephone"] ?? ""),
-              }));
+          (await ensureClient(
+            client ?? {
+              nom_complet: String(payload["client_nom"] ?? "Client"),
+              telephone: String(payload["client_telephone"] ?? ""),
+            },
+          ));
 
         const created = await req<ApiReservation>("/reservations", {
           method: "POST",
           body: JSON.stringify({
-            logement_id: payload["logement_id"],
-            client_id: clientId,
-            date_arrivee: payload["date_arrivee"],
-            date_depart: payload["date_depart"],
+            logementId: payload["logement_id"],
+            clientId,
+            dateDebut: payload["date_arrivee"],
+            dateFin: payload["date_depart"],
+            ...(payload["nombre_personnes"]
+              ? { personnes: Number(payload["nombre_personnes"]) }
+              : {}),
+            ...(payload["motif"] ? { motif: String(payload["motif"]) } : {}),
+            ...(payload["provenance"] ? { provenance: String(payload["provenance"]) } : {}),
+            ...(payload["destination"] ? { destination: String(payload["destination"]) } : {}),
             statut: payload["statut"] === "en_attente" ? "en_attente" : "confirmee",
-            ...(payload["motif"] ? { notes: String(payload["motif"]) } : {}),
           }),
         });
 
+        const reservation = mapReservation(created);
         const avance = Number(payload["montant_verse"] ?? 0);
-        if (avance > 0) {
-          await req(`/paiements`, {
+        if (avance > 0 && reservation.id) {
+          await req("/paiements", {
             method: "POST",
-            body: JSON.stringify({
-              reservation_id: created.id,
-              montant: avance,
-              mode: "especes",
-              date_paiement: new Date().toISOString(),
-            }),
+            body: JSON.stringify({ reservationId: reservation.id, montant: avance }),
           }).catch(() => undefined);
+          return mapReservation(await req<ApiReservation>(`/reservations/${reservation.id}`));
         }
-        return mapReservation(await req<ApiReservation>(`/reservations/${created.id}`));
+        return reservation;
       },
       () => demoApi.createReservation(payload as never),
     ),
@@ -187,12 +225,12 @@ export const api = {
           await req<ApiReservation>(`/reservations/${id}`, {
             method: "PATCH",
             body: JSON.stringify({
-              ...(patch.date_arrivee ? { date_arrivee: patch.date_arrivee } : {}),
-              ...(patch.date_depart ? { date_depart: patch.date_depart } : {}),
+              ...(patch.date_arrivee ? { dateDebut: patch.date_arrivee } : {}),
+              ...(patch.date_depart ? { dateFin: patch.date_depart } : {}),
               ...(patch.statut
                 ? { statut: patch.statut === "terminee" ? "confirmee" : patch.statut }
                 : {}),
-              ...(patch.motif ? { notes: patch.motif } : {}),
+              ...(patch.motif ? { motif: patch.motif } : {}),
             }),
           }),
         ),
@@ -205,12 +243,11 @@ export const api = {
       () => demoApi.deleteReservation(id),
     ),
 
+  /** POST /reservations/{id}/annuler */
   annulerReservation: (id: string) =>
     withFallback(
       async () =>
-        mapReservation(
-          await req<ApiReservation>(`/reservations/${id}/annuler`, { method: "PATCH" }),
-        ),
+        mapReservation(await req<ApiReservation>(`/reservations/${id}/annuler`, { method: "POST" })),
       () => demoApi.updateReservation(id, { statut: "annulee" }) as Reservation,
     ),
 
@@ -220,10 +257,10 @@ export const api = {
         await req("/paiements", {
           method: "POST",
           body: JSON.stringify({
-            reservation_id: id,
+            reservationId: id,
             montant: p.montant,
             mode: "especes",
-            date_paiement: new Date(p.date_paiement).toISOString(),
+            datePaiement: new Date(p.date_paiement).toISOString(),
           }),
         });
         return mapReservation(await req<ApiReservation>(`/reservations/${id}`));
@@ -231,11 +268,14 @@ export const api = {
       () => demoApi.addPaiement(id, p) as Reservation,
     ),
 
+  /** GET /dashboard/summary?period=day|week|month|year */
   stats: (periode: string) =>
     withFallback(
       async () => {
         const [brut, reservations, logements] = await Promise.all([
-          req<ApiDashboard>(`/dashboard/stats?periode=${periode}`).catch(() => ({}) as ApiDashboard),
+          req<ApiDashboard>(`/dashboard/summary?period=${periodeApi(periode)}`).catch(
+            () => ({}) as ApiDashboard,
+          ),
           fetchReservations(),
           fetchLogements(),
         ]);
@@ -256,7 +296,8 @@ export const api = {
       () => demoApi.dettes(),
     ) as Promise<Dette[]>,
 
-  clients: () => withFallback(fetchClients, () => demoApi.clients()),
+  clients: (search?: string) =>
+    withFallback(() => fetchClients(search), () => demoApi.clients()),
 
   clientsStats: () =>
     withFallback(
@@ -267,36 +308,39 @@ export const api = {
       () => demoApi.clientsStats(),
     ) as Promise<ClientStat[]>,
 
-  login: async (email: string, password: string) => {
+  /** POST /auth/login — corps { username, password }, réponse { access_token, ... }. */
+  login: async (identifiant: string, password: string) => {
     try {
-        const r = await req<{
-          token?: string;
-          access_token?: string;
-          role?: "gerant" | "proprietaire";
-          user?: { role?: "gerant" | "proprietaire"; nom?: string; email?: string };
-          nom_complet?: string;
-        }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-        const token = r.access_token ?? r.token ?? "";
-        if (!token) throw new Error("Jeton absent");
-        return {
-          token,
-          role: (r.role ?? r.user?.role ?? "gerant") as "gerant" | "proprietaire",
-          nom_complet: r.nom_complet ?? r.user?.nom ?? email.split("@")[0],
-        };
+      const r = await req<{
+        token?: string;
+        access_token?: string;
+        role?: "gerant" | "proprietaire";
+        user?: { role?: "gerant" | "proprietaire"; nom?: string; username?: string };
+        nom_complet?: string;
+      }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username: identifiant, password }),
+      });
+      const token = r.access_token ?? r.token ?? "";
+      if (!token) throw new HttpError(401, "Jeton absent de la réponse");
+      return {
+        token,
+        role: (r.role ?? r.user?.role ?? "gerant") as "gerant" | "proprietaire",
+        nom_complet: r.nom_complet ?? r.user?.nom ?? r.user?.username ?? identifiant,
+      };
     } catch (e) {
       // Identifiants refusés par l'API : on ne bascule pas en démo.
       if (e instanceof HttpError) throw e;
       apiOffline = true;
       return {
         token: "demo-token",
-        role: email.toLowerCase().startsWith("proprietaire")
+        role: identifiant.toLowerCase().startsWith("proprietaire")
           ? ("proprietaire" as const)
           : ("gerant" as const),
-        nom_complet: email.split("@")[0] ?? "Utilisateur",
+        nom_complet: identifiant.split("@")[0] ?? "Utilisateur",
       };
     }
   },
 };
 
-export const fcfa = (n: number) =>
-  `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} FCFA`;
+export const fcfa = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} FCFA`;

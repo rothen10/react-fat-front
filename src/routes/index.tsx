@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
 function LoginPage() {
   const { session, ready, signIn } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("gerant@knresidence.cm");
+  const [identifiant, setIdentifiant] = useState("gerant");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -41,12 +41,12 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const r = await api.login(email, password);
+      const r = await api.login(identifiant, password);
       signIn({
         token: r.token,
         role: r.role,
         nom: r.nom_complet ?? (r.role === "proprietaire" ? "Propriétaire" : "Gérant"),
-        email,
+        email: identifiant,
       });
       void navigate({ to: "/logements" });
     } catch {
@@ -58,9 +58,22 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between bg-sidebar p-12 text-sidebar-foreground lg:flex">
-        <span className="font-display text-2xl font-semibold">KN Residence</span>
-        <div>
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-12 text-sidebar-foreground lg:flex">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-sidebar-primary/20 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-32 -left-20 size-80 rounded-full bg-primary/30 blur-3xl"
+        />
+        <span className="relative flex items-center gap-3 font-display text-2xl font-semibold">
+          <span className="grid size-10 place-items-center rounded-xl bg-sidebar-primary font-bold text-sidebar-primary-foreground">
+            KN
+          </span>
+          KN Residence
+        </span>
+        <div className="relative">
           <h1 className="max-w-md font-display text-4xl leading-tight">
             La résidence, ses dix logements et chaque franc, au même endroit.
           </h1>
@@ -69,26 +82,31 @@ function LoginPage() {
             espèces suivis automatiquement.
           </p>
         </div>
-        <p className="text-xs text-sidebar-foreground/60">Douala · Cameroun</p>
+        <p className="relative text-xs text-sidebar-foreground/60">Douala · Cameroun</p>
       </div>
 
       <div className="flex items-center justify-center px-6 py-16">
         <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6">
+          <div className="lg:hidden">
+            <span className="grid size-11 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground">
+              KN
+            </span>
+          </div>
           <div>
-            <h2 className="font-display text-2xl font-semibold">Connexion</h2>
+            <h2 className="font-display text-3xl font-semibold">Connexion</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Comptes Gérant et Propriétaire uniquement.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Adresse e-mail</Label>
+            <Label htmlFor="identifiant">Identifiant</Label>
             <Input
-              id="email"
-              type="email"
+              id="identifiant"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifiant}
+              onChange={(e) => setIdentifiant(e.target.value)}
               autoComplete="username"
             />
           </div>
@@ -110,11 +128,11 @@ function LoginPage() {
           </Button>
 
           <p className="text-xs text-muted-foreground">
-            Astuce : une adresse commençant par <code>proprietaire@</code> ouvre la session avec les
-            droits Propriétaire.
+            L'identifiant <code>proprietaire</code> ouvre la session avec les droits Propriétaire.
           </p>
         </form>
       </div>
     </div>
   );
 }
+
