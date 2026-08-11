@@ -63,6 +63,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
+              aria-label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={toggle}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+            <Button
+
+              variant="ghost"
+              size="icon"
               aria-label="Se déconnecter"
               className="text-sidebar-foreground hover:bg-sidebar-accent"
               onClick={() => {
