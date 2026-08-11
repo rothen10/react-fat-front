@@ -394,6 +394,7 @@ function FormulaireReservation({
     mutationFn: () =>
       api.createReservation({
         logement_id: logementId,
+        ...(clientId ? { client_id: clientId } : {}),
         client: {
           nom_complet: form.nom,
           telephone: form.telephone,
@@ -414,6 +415,7 @@ function FormulaireReservation({
         provenance: form.provenance,
         destination: form.destination,
       }),
+
     onSuccess: () => {
       toast.success("Réservation enregistrée");
       onOpenChange(false);
