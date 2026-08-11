@@ -299,6 +299,42 @@ export const api = {
   clients: (search?: string) =>
     withFallback(() => fetchClients(search), () => demoApi.clients()),
 
+  createClient: (c: Partial<Client>) =>
+    withFallback(
+      async () =>
+        mapClient(
+          await req<ApiClient>("/clients", {
+            method: "POST",
+            body: JSON.stringify(clientBody(c)),
+          }),
+        ),
+      () => demoApi.createClient({ nom_complet: "", telephone: "", ...c } as Omit<Client, "id">),
+    ),
+
+  updateClient: (id: string, c: Partial<Client>) =>
+    withFallback(
+      async () =>
+        mapClient(
+          await req<ApiClient>(`/clients/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(clientBody(c)),
+          }),
+        ),
+      () => demoApi.updateClient(id, c) as Client,
+    ),
+
+  deleteClient: (id: string) =>
+    withFallback(
+      () => req<void>(`/clients/${id}`, { method: "DELETE" }),
+      () => demoApi.deleteClient(id),
+    ),
+
+  getReservation: (id: string) =>
+    withFallback(
+      async () => mapReservation(await req<ApiReservation>(`/reservations/${id}`)),
+      () => demoApi.reservation(id) as Reservation,
+    ),
+
   clientsStats: () =>
     withFallback(
       async () => {
@@ -307,6 +343,7 @@ export const api = {
       },
       () => demoApi.clientsStats(),
     ) as Promise<ClientStat[]>,
+
 
   /** POST /auth/login — corps { username, password }, réponse { access_token, ... }. */
   login: async (identifiant: string, password: string) => {
