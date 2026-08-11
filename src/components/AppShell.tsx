@@ -1,16 +1,19 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Building2, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Building2, LayoutDashboard, LogOut, Moon, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo-kn.png.asset.json";
 
 const NAV = [
   { to: "/logements", label: "Logements", icon: Building2 },
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/clients", label: "Clients", icon: Users },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session, ready, signOut } = useAuth();
