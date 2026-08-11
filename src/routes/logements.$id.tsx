@@ -435,27 +435,52 @@ function FormulaireReservation({
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Champ label="Nom(s) et prénom(s)" value={form.nom} onChange={(v) => set("nom", v)} />
-          <Champ
-            label="Téléphone"
-            value={form.telephone}
-            onChange={(v) => set("telephone", v)}
+          <SelecteurClient
+            clientId={clientId}
+            nouveau={nouveauClient}
+            onNouveau={(v) => {
+              setNouveauClient(v);
+              setClientId("");
+            }}
+            onSelect={(c) => {
+              setClientId(c?.id ?? "");
+              setForm((f) => ({
+                ...f,
+                nom: c?.nom_complet ?? "",
+                telephone: c?.telephone ?? "",
+                nationalite: c?.nationalite ?? "",
+                profession: c?.profession ?? "",
+                piece: c?.piece_identite_1 ?? "",
+              }));
+            }}
           />
-          <Champ
-            label="Nationalité"
-            value={form.nationalite}
-            onChange={(v) => set("nationalite", v)}
-          />
-          <Champ
-            label="Profession"
-            value={form.profession}
-            onChange={(v) => set("profession", v)}
-          />
-          <Champ
-            label="Pièce d'identité"
-            value={form.piece}
-            onChange={(v) => set("piece", v)}
-          />
+
+          {nouveauClient ? (
+            <>
+              <Champ label="Nom(s) et prénom(s)" value={form.nom} onChange={(v) => set("nom", v)} />
+              <Champ
+                label="Téléphone"
+                value={form.telephone}
+                onChange={(v) => set("telephone", v)}
+              />
+              <Champ
+                label="Nationalité"
+                value={form.nationalite}
+                onChange={(v) => set("nationalite", v)}
+              />
+              <Champ
+                label="Profession"
+                value={form.profession}
+                onChange={(v) => set("profession", v)}
+              />
+              <Champ
+                label="Pièce d'identité"
+                value={form.piece}
+                onChange={(v) => set("piece", v)}
+              />
+            </>
+          ) : null}
+
           <Champ
             label="Nombre de personnes"
             type="number"
