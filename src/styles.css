@@ -194,3 +194,69 @@
     var(--color-card) 60%
   );
 }
+
+/* ---- Arrière-plan animé (halos abstraits) ---- */
+.orbe {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.42;
+  will-change: transform;
+}
+.dark .orbe {
+  opacity: 0.28;
+}
+.orbe-a {
+  width: 34rem;
+  height: 34rem;
+  top: -10rem;
+  left: -8rem;
+  background: radial-gradient(circle, var(--color-accent), transparent 68%);
+  animation: derive-a 26s ease-in-out infinite alternate;
+}
+.orbe-b {
+  width: 28rem;
+  height: 28rem;
+  bottom: -9rem;
+  right: -6rem;
+  background: radial-gradient(circle, var(--color-primary), transparent 68%);
+  animation: derive-b 32s ease-in-out infinite alternate;
+}
+.orbe-c {
+  width: 22rem;
+  height: 22rem;
+  top: 45%;
+  left: 55%;
+  background: radial-gradient(circle, var(--color-sidebar-primary), transparent 70%);
+  animation: derive-c 38s ease-in-out infinite alternate;
+}
+.voile-grille {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-border) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-border) 60%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 72%);
+  opacity: 0.5;
+  animation: respire 18s ease-in-out infinite;
+}
+@keyframes derive-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(6rem, 4rem, 0) scale(1.12); }
+}
+@keyframes derive-b {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to { transform: translate3d(-7rem, -3rem, 0) scale(0.95); }
+}
+@keyframes derive-c {
+  from { transform: translate3d(-4rem, 2rem, 0) scale(0.9); }
+  to { transform: translate3d(4rem, -5rem, 0) scale(1.15); }
+}
+@keyframes respire {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.62; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbe, .voile-grille { animation: none; }
+}
