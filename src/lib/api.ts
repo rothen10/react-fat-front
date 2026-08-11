@@ -21,7 +21,7 @@ import type {
   Reservation,
 } from "./types";
 
-export const API_URL = (import.meta.env["VITE_API_URL"] as string) ?? "http://localhost:3001";
+export const API_URL = (import.meta.env["VITE_API_URL"] as string) ?? "https://kn-residence-api.vercel.app";
 
 /** Vrai lorsque l'API locale n'a pas répondu : l'app bascule sur les données de démo. */
 export let apiOffline = false;
