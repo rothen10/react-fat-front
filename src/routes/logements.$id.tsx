@@ -238,7 +238,12 @@ function LogementDetail() {
                     key={jour}
                     type="button"
                     onClick={() => cliquerJour(jour)}
-                    className={`flex min-h-16 flex-col items-start rounded-lg border border-border p-1.5 text-left text-xs transition-colors hover:border-primary ${
+                    aria-current={jour === iso(new Date()) ? "date" : undefined}
+                    className={`relative flex min-h-16 flex-col items-start rounded-lg border border-border p-1.5 text-left text-xs transition-colors hover:border-primary ${
+                      jour === iso(new Date())
+                        ? "border-primary ring-2 ring-primary/70 ring-offset-1 ring-offset-background"
+                        : ""
+                    } ${
                       reservationDuJour(jour)
                         ? COULEUR_CLASSES[couleurReservation(reservationDuJour(jour)!)]
                         : dansSelection(jour)
@@ -246,13 +251,22 @@ function LogementDetail() {
                           : "bg-card"
                     }`}
                   >
-                    <span className="font-medium">{Number(jour.slice(8))}</span>
+                    <span
+                      className={
+                        jour === iso(new Date())
+                          ? "rounded-md bg-primary px-1.5 font-semibold text-primary-foreground"
+                          : "font-medium"
+                      }
+                    >
+                      {Number(jour.slice(8))}
+                    </span>
                     {reservationDuJour(jour)?.date_arrivee === jour ? (
                       <span className="mt-auto line-clamp-2 leading-tight">
                         {reservationDuJour(jour)?.client_nom}
                       </span>
                     ) : null}
                   </button>
+
                 ),
               )}
             </div>
@@ -569,7 +583,10 @@ function FormulaireReservation({
             Annuler
           </Button>
           <Button
-            disabled={chevauchement || !form.nom || !form.telephone || m.isPending}
+            disabled={
+              chevauchement || (!clientId && (!form.nom || !form.telephone)) || m.isPending
+            }
+
             onClick={() => m.mutate()}
           >
             Enregistrer
