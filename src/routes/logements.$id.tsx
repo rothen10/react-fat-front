@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { PanneauReservation } from "@/components/PanneauReservation";
+import { SelecteurClient } from "@/components/SelecteurClient";
 import { COULEUR_CLASSES, Legende, couleurReservation } from "@/components/statut";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -235,7 +238,12 @@ function LogementDetail() {
                     key={jour}
                     type="button"
                     onClick={() => cliquerJour(jour)}
-                    className={`flex min-h-16 flex-col items-start rounded-lg border border-border p-1.5 text-left text-xs transition-colors hover:border-primary ${
+                    aria-current={jour === iso(new Date()) ? "date" : undefined}
+                    className={`relative flex min-h-16 flex-col items-start rounded-lg border border-border p-1.5 text-left text-xs transition-colors hover:border-primary ${
+                      jour === iso(new Date())
+                        ? "border-primary ring-2 ring-primary/70 ring-offset-1 ring-offset-background"
+                        : ""
+                    } ${
                       reservationDuJour(jour)
                         ? COULEUR_CLASSES[couleurReservation(reservationDuJour(jour)!)]
                         : dansSelection(jour)
@@ -243,13 +251,22 @@ function LogementDetail() {
                           : "bg-card"
                     }`}
                   >
-                    <span className="font-medium">{Number(jour.slice(8))}</span>
+                    <span
+                      className={
+                        jour === iso(new Date())
+                          ? "rounded-md bg-primary px-1.5 font-semibold text-primary-foreground"
+                          : "font-medium"
+                      }
+                    >
+                      {Number(jour.slice(8))}
+                    </span>
                     {reservationDuJour(jour)?.date_arrivee === jour ? (
                       <span className="mt-auto line-clamp-2 leading-tight">
                         {reservationDuJour(jour)?.client_nom}
                       </span>
                     ) : null}
                   </button>
+
                 ),
               )}
             </div>
@@ -353,7 +370,10 @@ function FormulaireReservation({
   agent: string;
   onSaved: () => void;
 }) {
+  const [clientId, setClientId] = useState("");
+  const [nouveauClient, setNouveauClient] = useState(false);
   const [form, setForm] = useState({
+
     nom: "",
     telephone: "",
     personnes: "1",
@@ -394,6 +414,7 @@ function FormulaireReservation({
     mutationFn: () =>
       api.createReservation({
         logement_id: logementId,
+        ...(clientId ? { client_id: clientId } : {}),
         client: {
           nom_complet: form.nom,
           telephone: form.telephone,
@@ -414,6 +435,7 @@ function FormulaireReservation({
         provenance: form.provenance,
         destination: form.destination,
       }),
+
     onSuccess: () => {
       toast.success("Réservation enregistrée");
       onOpenChange(false);
@@ -435,27 +457,52 @@ function FormulaireReservation({
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Champ label="Nom(s) et prénom(s)" value={form.nom} onChange={(v) => set("nom", v)} />
-          <Champ
-            label="Téléphone"
-            value={form.telephone}
-            onChange={(v) => set("telephone", v)}
+          <SelecteurClient
+            clientId={clientId}
+            nouveau={nouveauClient}
+            onNouveau={(v) => {
+              setNouveauClient(v);
+              setClientId("");
+            }}
+            onSelect={(c) => {
+              setClientId(c?.id ?? "");
+              setForm((f) => ({
+                ...f,
+                nom: c?.nom_complet ?? "",
+                telephone: c?.telephone ?? "",
+                nationalite: c?.nationalite ?? "",
+                profession: c?.profession ?? "",
+                piece: c?.piece_identite_1 ?? "",
+              }));
+            }}
           />
-          <Champ
-            label="Nationalité"
-            value={form.nationalite}
-            onChange={(v) => set("nationalite", v)}
-          />
-          <Champ
-            label="Profession"
-            value={form.profession}
-            onChange={(v) => set("profession", v)}
-          />
-          <Champ
-            label="Pièce d'identité"
-            value={form.piece}
-            onChange={(v) => set("piece", v)}
-          />
+
+          {nouveauClient ? (
+            <>
+              <Champ label="Nom(s) et prénom(s)" value={form.nom} onChange={(v) => set("nom", v)} />
+              <Champ
+                label="Téléphone"
+                value={form.telephone}
+                onChange={(v) => set("telephone", v)}
+              />
+              <Champ
+                label="Nationalité"
+                value={form.nationalite}
+                onChange={(v) => set("nationalite", v)}
+              />
+              <Champ
+                label="Profession"
+                value={form.profession}
+                onChange={(v) => set("profession", v)}
+              />
+              <Champ
+                label="Pièce d'identité"
+                value={form.piece}
+                onChange={(v) => set("piece", v)}
+              />
+            </>
+          ) : null}
+
           <Champ
             label="Nombre de personnes"
             type="number"
@@ -536,125 +583,15 @@ function FormulaireReservation({
             Annuler
           </Button>
           <Button
-            disabled={chevauchement || !form.nom || !form.telephone || m.isPending}
+            disabled={
+              chevauchement || (!clientId && (!form.nom || !form.telephone)) || m.isPending
+            }
+
             onClick={() => m.mutate()}
           >
             Enregistrer
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PanneauReservation({
-  reservation,
-  onClose,
-  agent,
-  onChanged,
-}: {
-  reservation: Reservation | null;
-  onClose: () => void;
-  agent: string;
-  onChanged: () => void;
-}) {
-  const [montant, setMontant] = useState("");
-  const r = reservation;
-
-  const paiement = useMutation({
-    mutationFn: () =>
-      api.addPaiement(r!.id, {
-        montant: Number(montant),
-        date_paiement: iso(new Date()),
-        agent,
-      }),
-    onSuccess: () => {
-      toast.success("Paiement enregistré");
-      setMontant("");
-      onChanged();
-      onClose();
-    },
-  });
-
-  const changerStatut = useMutation({
-    mutationFn: (statut: StatutReservation) => api.updateReservation(r!.id, { statut }),
-    onSuccess: () => {
-      toast.success("Réservation mise à jour");
-      onChanged();
-      onClose();
-    },
-  });
-
-  const supprimer = useMutation({
-    mutationFn: () => api.deleteReservation(r!.id),
-    onSuccess: () => {
-      toast.success("Réservation supprimée");
-      onChanged();
-      onClose();
-    },
-  });
-
-  return (
-    <Dialog open={!!r} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        {r ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{r.client_nom}</DialogTitle>
-              <DialogDescription>
-                {r.date_arrivee} → {r.date_depart} · {nuits(r.date_arrivee, r.date_depart)} nuit(s)
-              </DialogDescription>
-            </DialogHeader>
-
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <Info label="Téléphone" value={r.client_telephone} />
-              <Info label="Agent" value={r.agent} />
-              <Info label="Montant total" value={fcfa(r.montant_total)} />
-              <Info label="Déjà payé" value={fcfa(r.montant_paye)} />
-              <Info label="Reste à payer" value={fcfa(r.montant_restant)} />
-              <Info label="Statut" value={r.statut.replace("_", " ")} />
-            </dl>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label htmlFor="paiement">Enregistrer un paiement (espèces)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="paiement"
-                  type="number"
-                  placeholder={String(r.montant_restant)}
-                  value={montant}
-                  onChange={(e) => setMontant(e.target.value)}
-                />
-                <Button disabled={!montant || paiement.isPending} onClick={() => paiement.mutate()}>
-                  Encaisser
-                </Button>
-              </div>
-            </div>
-
-            <DialogFooter className="flex-wrap gap-2 sm:justify-between">
-              <div className="flex gap-2">
-                {r.statut === "en_attente" ? (
-                  <Button variant="outline" onClick={() => changerStatut.mutate("confirmee")}>
-                    Confirmer
-                  </Button>
-                ) : null}
-                <Button variant="outline" onClick={() => changerStatut.mutate("terminee")}>
-                  Clôturer
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => changerStatut.mutate("annulee")}>
-                  <X className="size-4" /> Annuler
-                </Button>
-                <Button variant="destructive" onClick={() => supprimer.mutate()}>
-                  <Trash2 className="size-4" /> Supprimer
-                </Button>
-              </div>
-            </DialogFooter>
-          </>
-        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -679,11 +616,3 @@ function Champ({
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="font-medium capitalize">{value}</dd>
-    </div>
-  );
-}

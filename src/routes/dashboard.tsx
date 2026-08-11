@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useState } from "react";
 import {
@@ -11,6 +11,9 @@ import {
 
 import { ClientOnly } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import { PanneauReservation } from "@/components/PanneauReservation";
+import { useAuth } from "@/lib/auth";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -53,12 +56,21 @@ const PERIODES = [
 function DashboardPage() {
   const [periode, setPeriode] = useState<string>("mois");
   const [dettesOuvertes, setDettesOuvertes] = useState(false);
+  const [detteOuverte, setDetteOuverte] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const { session } = useAuth();
 
   const { data: stats } = useQuery({
     queryKey: ["stats", periode],
     queryFn: () => api.stats(periode),
   });
   const { data: dettes = [] } = useQuery({ queryKey: ["dettes"], queryFn: () => api.dettes() });
+  const { data: reservationDette } = useQuery({
+    queryKey: ["reservation", detteOuverte],
+    queryFn: () => api.getReservation(detteOuverte!),
+    enabled: !!detteOuverte,
+  });
+
 
   return (
     <AppShell>
@@ -138,7 +150,16 @@ function DashboardPage() {
             </TableHeader>
             <TableBody>
               {dettes.map((d) => (
-                <TableRow key={d.reservation_id}>
+                <TableRow
+                  key={d.reservation_id}
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => setDetteOuverte(d.reservation_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") setDetteOuverte(d.reservation_id);
+                  }}
+                  className="cursor-pointer"
+                >
                   <TableCell>{d.logement}</TableCell>
                   <TableCell className="font-medium">{d.client}</TableCell>
                   <TableCell>{d.telephone}</TableCell>
@@ -154,6 +175,18 @@ function DashboardPage() {
           </Table>
         </div>
       ) : null}
+
+      <PanneauReservation
+        reservation={reservationDette ?? null}
+        agent={session?.nom ?? "—"}
+        onClose={() => setDetteOuverte(null)}
+        onChanged={() => {
+          void qc.invalidateQueries({ queryKey: ["dettes"] });
+          void qc.invalidateQueries({ queryKey: ["stats"] });
+          void qc.invalidateQueries({ queryKey: ["reservation"] });
+        }}
+      />
+
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="card-surface p-5">

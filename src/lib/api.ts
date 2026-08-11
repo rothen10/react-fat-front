@@ -110,7 +110,21 @@ async function fetchClients(search?: string): Promise<Client[]> {
   return (Array.isArray(list) ? list : []).map(mapClient);
 }
 
+/** Corps de requête client attendu par l'API NestJS. */
+function clientBody(c: Partial<Client>): Record<string, unknown> {
+  return {
+    ...(c.nom_complet !== undefined ? { nomPrenoms: c.nom_complet } : {}),
+    ...(c.telephone !== undefined ? { telephone: c.telephone } : {}),
+    ...(c.piece_identite_1 !== undefined ? { cni: c.piece_identite_1 } : {}),
+    ...(c.date_naissance ? { dateNaissance: c.date_naissance } : {}),
+    ...(c.nationalite !== undefined ? { nationalite: c.nationalite } : {}),
+    ...(c.profession !== undefined ? { profession: c.profession } : {}),
+    ...(c.residence_cameroun !== undefined ? { adresse: c.residence_cameroun } : {}),
+  };
+}
+
 /** Retrouve un client par téléphone (recherche unifiée), sinon le crée. */
+
 async function ensureClient(c: {
   nom_complet: string;
   telephone: string;
@@ -299,6 +313,42 @@ export const api = {
   clients: (search?: string) =>
     withFallback(() => fetchClients(search), () => demoApi.clients()),
 
+  createClient: (c: Partial<Client>) =>
+    withFallback(
+      async () =>
+        mapClient(
+          await req<ApiClient>("/clients", {
+            method: "POST",
+            body: JSON.stringify(clientBody(c)),
+          }),
+        ),
+      () => demoApi.createClient({ nom_complet: "", telephone: "", ...c } as Omit<Client, "id">),
+    ),
+
+  updateClient: (id: string, c: Partial<Client>) =>
+    withFallback(
+      async () =>
+        mapClient(
+          await req<ApiClient>(`/clients/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(clientBody(c)),
+          }),
+        ),
+      () => demoApi.updateClient(id, c) as Client,
+    ),
+
+  deleteClient: (id: string) =>
+    withFallback(
+      () => req<void>(`/clients/${id}`, { method: "DELETE" }),
+      () => demoApi.deleteClient(id),
+    ),
+
+  getReservation: (id: string) =>
+    withFallback(
+      async () => mapReservation(await req<ApiReservation>(`/reservations/${id}`)),
+      () => demoApi.reservation(id) as Reservation,
+    ),
+
   clientsStats: () =>
     withFallback(
       async () => {
@@ -307,6 +357,7 @@ export const api = {
       },
       () => demoApi.clientsStats(),
     ) as Promise<ClientStat[]>,
+
 
   /** POST /auth/login — corps { username, password }, réponse { access_token, ... }. */
   login: async (identifiant: string, password: string) => {

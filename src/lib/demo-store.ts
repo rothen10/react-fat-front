@@ -212,6 +212,19 @@ export const demoApi = {
     db.clients.push(nc);
     return nc;
   },
+  updateClient(id: string, patch: Partial<Client>): Client | undefined {
+    const c = db.clients.find((x) => x.id === id);
+    if (c) Object.assign(c, patch);
+    return c;
+  },
+  deleteClient(id: string) {
+    db.clients = db.clients.filter((c) => c.id !== id);
+  },
+  reservation(id: string): Reservation | undefined {
+    const r = db.reservations.find((x) => x.id === id);
+    return r ? { ...recompute(r), paiements: db.paiements.filter((p) => p.reservation_id === id) } : undefined;
+  },
+
   createReservation(input: Partial<Reservation> & { client?: Omit<Client, "id"> }): Reservation {
     const logement = db.logements.find((l) => l.id === input.logement_id)!;
     let clientId = input.client_id;
