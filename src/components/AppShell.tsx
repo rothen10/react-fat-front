@@ -17,6 +17,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session, ready, signOut } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -27,15 +28,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!ready || !session) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-sidebar text-sidebar-foreground">
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar/95 text-sidebar-foreground backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
           <Link to="/logements" className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-lg bg-sidebar-primary font-display text-lg font-bold text-sidebar-primary-foreground">
-              KN
-            </span>
+            <img src={logo.url} alt="Logo KN Residence" className="size-9 rounded-lg object-contain" />
             <span className="font-display text-lg font-semibold">KN Residence</span>
           </Link>
+
 
           <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
             {NAV.map(({ to, label, icon: Icon }) => (
