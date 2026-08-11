@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { PanneauReservation } from "@/components/PanneauReservation";
+import { SelecteurClient } from "@/components/SelecteurClient";
 import { COULEUR_CLASSES, Legende, couleurReservation } from "@/components/statut";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -353,7 +356,10 @@ function FormulaireReservation({
   agent: string;
   onSaved: () => void;
 }) {
+  const [clientId, setClientId] = useState("");
+  const [nouveauClient, setNouveauClient] = useState(false);
   const [form, setForm] = useState({
+
     nom: "",
     telephone: "",
     personnes: "1",
