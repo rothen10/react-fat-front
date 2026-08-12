@@ -172,3 +172,37 @@ Points clés à retenir en formation :
 3. En fin de journée : vérifier la **liste des créances** et relancer les soldes
    dus.
 4. Nettoyer les réservations « en attente » périmées (confirmer ou annuler).
+
+## Mise à jour — Espace public, paiements et notifications
+
+### 1. Espace commun (page d'accueil, `/`)
+Écran public visible sans connexion : présentation des logements (type, description,
+équipements, tarif par nuit, disponibilité du jour) et bouton **Réserver**.
+Le formulaire de réservation en ligne demande le nom, le téléphone Mobile Money, les dates,
+le nombre de personnes, l'opérateur (Orange Money / MTN MoMo) et la part à régler
+(avance 30 % ou totalité). Après validation, l'utilisateur est redirigé vers la page de
+paiement Moneroo ; la réservation est créée au statut **En attente** et n'est comptée dans le
+chiffre d'affaires qu'une fois le paiement encaissé.
+En haut à droite : bascule clair/sombre et bouton **Sign in** vers `/login` (Gérant / Propriétaire).
+
+### 2. Onglet Paiements
+Journal de tous les encaissements : date, client, logement, type (**Espèces** à la réception ou
+**En ligne** via Mobile Money) et montant. Filtres par canal et recherche par client ou logement.
+Les cartes du haut totalisent le montant encaissé, la part en ligne et le nombre d'opérations.
+Distinguer les deux canaux permet de rapprocher la caisse physique des versements Moneroo.
+
+### 3. Notifications
+La cloche dans l'en-tête liste les nouvelles réservations (notamment celles reçues en ligne).
+Un point doré signale les notifications non lues ; cliquer une ligne ouvre le détail financier
+de la réservation, où le gérant peut confirmer, encaisser, modifier les dates ou annuler.
+
+### 4. Fiche client et historique
+Dans l'écran **Clients**, un clic sur une ligne ouvre l'historique complet des séjours du client
+(dates, nuits, statut, montant payé, reste dû). Les icônes à droite restent réservées à la
+modification et à la suppression de la fiche.
+
+### 5. Calendrier — changement d'état
+Un clic sur une réservation du calendrier ouvre la même fenêtre de détail : le bouton
+**Confirmer** fait passer une réservation *En attente* (jaune) à *Confirmée* (bleu), ce qui la
+comptabilise dans les réservations actives et le taux d'occupation. La date du jour est
+encadrée en doré.
