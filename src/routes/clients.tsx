@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, fcfa } from "@/lib/api";
 import type { Client } from "@/lib/types";
 
 export const Route = createFileRoute("/clients")({
@@ -320,5 +320,63 @@ function Champ({
       <Label>{label}</Label>
       <Input value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
+  );
+}
+
+/** Historique des séjours d'un client. */
+function HistoriqueClient({ client, onClose }: { client: Client | null; onClose: () => void }) {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["reservations-client", client?.id],
+    queryFn: () => api.reservationsClient(client!.id),
+    enabled: !!client,
+  });
+
+  const nuits = (a: string, b: string) =>
+    Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000));
+
+  return (
+    <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{client?.nom_complet}</DialogTitle>
+          <DialogDescription>
+            Réservations enregistrées depuis l'ouverture de la fiche client.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Chargement…</p>
+        ) : data.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Ce client n'a encore aucune réservation.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Séjour</TableHead>
+                <TableHead>Nuits</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead className="text-right">Payé</TableHead>
+                <TableHead className="text-right">Reste</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {r.date_arrivee} → {r.date_depart}
+                  </TableCell>
+                  <TableCell>{nuits(r.date_arrivee, r.date_depart)}</TableCell>
+                  <TableCell className="capitalize">{r.statut.replace("_", " ")}</TableCell>
+                  <TableCell className="text-right">{fcfa(r.montant_paye)}</TableCell>
+                  <TableCell className="text-right">{fcfa(r.montant_restant)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
