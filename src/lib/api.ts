@@ -4,12 +4,16 @@ import {
   mapDashboard,
   mapDettes,
   mapLogement,
+  mapNotification,
+  mapPaiement,
   mapReservation,
   periodeApi,
   type ApiClient,
   type ApiDashboard,
   type ApiLogement,
+  type ApiPaiement,
   type ApiReservation,
+  type Brut,
 } from "./api-dto";
 
 import type {
@@ -18,6 +22,8 @@ import type {
   DashboardStats,
   Dette,
   Logement,
+  NotificationItem,
+  Paiement,
   Reservation,
 } from "./types";
 
