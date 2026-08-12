@@ -131,7 +131,11 @@ function ClientsPage() {
               </TableRow>
             ) : null}
             {filtres.map((c) => (
-              <TableRow key={c.client.id}>
+              <TableRow
+                key={c.client.id}
+                className="cursor-pointer"
+                onClick={() => setHistorique(c.client)}
+              >
                 <TableCell className="font-medium">
                   <span className="flex items-center gap-3">
                     <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -150,7 +154,8 @@ function ClientsPage() {
                 <TableCell>{c.client.nationalite ?? "—"}</TableCell>
                 <TableCell className="text-right">{c.nombre_reservations}</TableCell>
                 <TableCell className="text-right">{c.jours_cumules}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+
                   <span className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
