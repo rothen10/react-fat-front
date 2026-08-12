@@ -193,6 +193,9 @@ function ClientsPage() {
         onSaved={invalider}
       />
 
+      <HistoriqueClient client={historique} onClose={() => setHistorique(null)} />
+
+
       <Dialog open={!!aSupprimer} onOpenChange={(o) => !o && setASupprimer(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
