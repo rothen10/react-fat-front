@@ -31,12 +31,29 @@ export interface Client {
   etat_civil?: string | undefined;
 }
 
+export type CanalPaiement = "especes" | "en_ligne";
+
 export interface Paiement {
   id: string;
   reservation_id: string;
   montant: number;
   date_paiement: string;
   agent: string;
+  /** Mode brut renvoyé par l'API (especes, om, momo, moneroo…). */
+  mode: string;
+  canal: CanalPaiement;
+  client_nom?: string | undefined;
+  logement_nom?: string | undefined;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  titre: string;
+  message: string;
+  reservation_id?: string | undefined;
+  lu: boolean;
+  created_at: string;
 }
 
 export interface Reservation {
