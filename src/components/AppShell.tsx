@@ -71,7 +71,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-sm font-medium">{session.nom}</p>
               <p className="text-xs capitalize text-sidebar-foreground/70">{session.role}</p>
             </div>
+            <Notifications agent={session.nom} />
             <Button
+
               variant="ghost"
               size="icon"
               aria-label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
