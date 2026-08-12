@@ -60,6 +60,7 @@ function ClientsPage() {
   const [edition, setEdition] = useState<Client | null>(null);
   const [creation, setCreation] = useState(false);
   const [aSupprimer, setASupprimer] = useState<Client | null>(null);
+  const [historique, setHistorique] = useState<Client | null>(null);
 
   const { data = [] } = useQuery({ queryKey: ["clients-stats"], queryFn: () => api.clientsStats() });
 
@@ -90,9 +91,10 @@ function ClientsPage() {
         <div>
           <h1 className="text-3xl font-semibold">Clients</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Fiches réutilisables d'un séjour à l'autre : recherchez, créez, modifiez ou supprimez un
-            client.
+            Fiches réutilisables d'un séjour à l'autre : cliquez une ligne pour voir l'historique
+            des réservations, ou utilisez les actions pour modifier et supprimer.
           </p>
+
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
