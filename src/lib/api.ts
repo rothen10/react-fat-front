@@ -1131,9 +1131,9 @@ export const api = {
     client: Partial<Client>;
   }): Promise<{ reservation: Reservation; checkout_url?: string }> => {
     const clientId = await ensureClient({
+      ...payload.client,
       nom_complet: payload.client.nom_complet ?? "Client",
       telephone: payload.client.telephone ?? "",
-      ...payload.client,
     });
 
     const created = await req<ApiReservation>("/reservations", {
