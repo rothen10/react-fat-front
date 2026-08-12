@@ -1,9 +1,18 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Building2, LayoutDashboard, LogOut, Moon, Sun, Users } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  LogOut,
+  Moon,
+  Sun,
+  Users,
+  Wallet,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { Notifications } from "@/components/Notifications";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo-kn.png.asset.json";
@@ -11,6 +20,7 @@ import logo from "@/assets/logo-kn.png.asset.json";
 const NAV = [
   { to: "/logements", label: "Logements", icon: Building2 },
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+  { to: "/paiements", label: "Paiements", icon: Wallet },
   { to: "/clients", label: "Clients", icon: Users },
 ] as const;
 
@@ -22,10 +32,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (ready && !session) void navigate({ to: "/" });
+    if (ready && !session) void navigate({ to: "/login" });
   }, [ready, session, navigate]);
 
   if (!ready || !session) return null;
+
 
   return (
     <div className="min-h-screen">
@@ -60,7 +71,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-sm font-medium">{session.nom}</p>
               <p className="text-xs capitalize text-sidebar-foreground/70">{session.role}</p>
             </div>
+            <Notifications agent={session.nom} />
             <Button
+
               variant="ghost"
               size="icon"
               aria-label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}

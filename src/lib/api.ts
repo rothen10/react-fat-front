@@ -4,12 +4,16 @@ import {
   mapDashboard,
   mapDettes,
   mapLogement,
+  mapNotification,
+  mapPaiement,
   mapReservation,
   periodeApi,
   type ApiClient,
   type ApiDashboard,
   type ApiLogement,
+  type ApiPaiement,
   type ApiReservation,
+  type Brut,
 } from "./api-dto";
 
 import type {
@@ -18,6 +22,8 @@ import type {
   DashboardStats,
   Dette,
   Logement,
+  NotificationItem,
+  Paiement,
   Reservation,
 } from "./types";
 
@@ -1022,6 +1028,156 @@ export const api = {
         reservations,
       );
     },
+
+  /**
+   * ============================
+   * PAIEMENTS (liste globale)
+   * ============================
+   * GET /paiements — repli sur les paiements imbriqués
+   * dans les réservations si la route n'existe pas.
+   */
+  paiements: async (): Promise<Paiement[]> => {
+    try {
+      const list = await req<ApiPaiement[]>("/paiements");
+      if (Array.isArray(list) && list.length) return list.map(mapPaiement);
+    } catch {
+      /* route absente : on reconstruit depuis les réservations */
+    }
+
+    const [reservations, logements] = await Promise.all([
+      fetchReservations(),
+      fetchLogements(),
+    ]);
+    const nomLogement = (id: string) => logements.find((l) => l.id === id)?.nom;
+
+    return reservations
+      .flatMap((r) =>
+        (r.paiements ?? []).map((p) => ({
+          ...p,
+          client_nom: r.client_nom,
+          logement_nom: nomLogement(r.logement_id),
+        })),
+      )
+      .sort((a, b) => (a.date_paiement < b.date_paiement ? 1 : -1));
+  },
+
+  /**
+   * ============================
+   * NOTIFICATIONS
+   * ============================
+   */
+  notifications: async (): Promise<NotificationItem[]> => {
+    try {
+      const list = await req<Brut[]>("/notifications");
+      if (Array.isArray(list)) return list.map(mapNotification);
+    } catch {
+      /* repli : nouvelles réservations en attente */
+    }
+
+    const reservations = await fetchReservations();
+    return reservations
+      .filter((r) => r.statut === "en_attente")
+      .map((r) => ({
+        id: `res-${r.id}`,
+        type: "nouvelle_reservation",
+        titre: "Nouvelle réservation",
+        message: `${r.client_nom} — ${r.date_arrivee} → ${r.date_depart}`,
+        reservation_id: r.id,
+        lu: false,
+        created_at: r.date_arrivee,
+      }));
+  },
+
+  marquerNotificationLue: async (id: string) => {
+    if (id.startsWith("res-")) return;
+    try {
+      await req<void>(`/notifications/${id}/lu`, { method: "PATCH" });
+    } catch {
+      await req<void>(`/notifications/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ lu: true }),
+      });
+    }
+  },
+
+  /**
+   * Réservations d'un client donné.
+   */
+  reservationsClient: async (clientId: string): Promise<Reservation[]> => {
+    try {
+      const list = await req<ApiReservation[]>(`/clients/${clientId}/reservations`);
+      if (Array.isArray(list)) return list.map(mapReservation);
+    } catch {
+      /* repli : filtrage côté client */
+    }
+    const all = await fetchReservations();
+    return all.filter((r) => r.client_id === clientId);
+  },
+
+  /**
+   * ============================
+   * RÉSERVATION EN LIGNE (public)
+   * ============================
+   * Crée le client, la réservation puis initialise
+   * le paiement Moneroo (Orange Money / MTN MoMo).
+   */
+  reserverEnLigne: async (payload: {
+    logement_id: string;
+    date_arrivee: string;
+    date_depart: string;
+    nombre_personnes?: number;
+    montant: number;
+    operateur: "om" | "momo";
+    client: Partial<Client>;
+  }): Promise<{ reservation: Reservation; checkout_url?: string }> => {
+    const clientId = await ensureClient({
+      ...payload.client,
+      nom_complet: payload.client.nom_complet ?? "Client",
+      telephone: payload.client.telephone ?? "",
+    });
+
+    const created = await req<ApiReservation>("/reservations", {
+      method: "POST",
+      body: JSON.stringify({
+        logementId: payload.logement_id,
+        clientId,
+        dateDebut: payload.date_arrivee,
+        dateFin: payload.date_depart,
+        ...(payload.nombre_personnes ? { personnes: payload.nombre_personnes } : {}),
+        statut: "en_attente",
+        canal: "en_ligne",
+      }),
+    });
+
+    const reservation = mapReservation(created);
+
+    let checkout_url: string | undefined;
+    if (payload.montant > 0) {
+      const corps = JSON.stringify({
+        reservationId: reservation.id,
+        montant: payload.montant,
+        mode: payload.operateur,
+        telephone: payload.client.telephone,
+      });
+      for (const route of ["/paiements/moneroo", "/paiements/en-ligne", "/paiements"]) {
+        try {
+          const r = await req<Brut>(route, { method: "POST", body: corps });
+          const url =
+            (r?.["checkout_url"] as string | undefined) ??
+            (r?.["checkoutUrl"] as string | undefined) ??
+            (r?.["payment_url"] as string | undefined) ??
+            ((r?.["data"] as Brut | undefined)?.["checkout_url"] as string | undefined);
+          if (url) checkout_url = url;
+          break;
+        } catch {
+          /* on tente la route suivante */
+        }
+      }
+    }
+
+    return checkout_url ? { reservation, checkout_url } : { reservation };
+  },
+
 
   /**
    * ============================

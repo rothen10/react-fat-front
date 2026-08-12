@@ -11,6 +11,7 @@ import type {
   DashboardStats,
   Dette,
   Logement,
+  NotificationItem,
   Paiement,
   Reservation,
   StatutReservation,
@@ -93,15 +94,40 @@ export function mapClient(c: ApiClient): Client {
 }
 
 export function mapPaiement(p: ApiPaiement): Paiement {
-  const mode = str(pick(p, "mode"), "especes");
+  const mode = str(pick(p, "mode", "modePaiement", "methode"), "especes").toLowerCase();
+  const enLigne =
+    /om|momo|mobile|moneroo|ligne|online|card|carte/.test(mode) ||
+    pick(p, "reference", "transactionId", "monerooId") != null;
+  const reservation = (pick(p, "reservation") as Brut | undefined) ?? undefined;
+  const client = (pick(reservation, "client") as Brut | undefined) ?? undefined;
+  const logement = (pick(reservation, "logement") as Brut | undefined) ?? undefined;
   return {
     id: str(pick(p, "id")),
-    reservation_id: str(pick(p, "reservationId", "reservation_id")),
+    reservation_id: str(pick(p, "reservationId", "reservation_id") ?? pick(reservation, "id")),
     montant: num(pick(p, "montant")),
     date_paiement: jour(pick(p, "datePaiement", "date_paiement", "createdAt", "created_at")),
     agent: mode === "especes" ? "Espèces" : mode,
+    mode,
+    canal: enLigne ? "en_ligne" : "especes",
+    client_nom: client ? str(pick(client, "nomPrenoms", "nom_complet", "nom")) : undefined,
+    logement_nom: logement ? str(pick(logement, "nom", "name")) : undefined,
   };
 }
+
+export function mapNotification(n: Brut): NotificationItem {
+  return {
+    id: str(pick(n, "id")),
+    type: str(pick(n, "type", "categorie"), "reservation"),
+    titre: str(pick(n, "titre", "title", "type"), "Notification"),
+    message: str(pick(n, "message", "contenu", "description")),
+    reservation_id: pick(n, "reservationId", "reservation_id")
+      ? str(pick(n, "reservationId", "reservation_id"))
+      : undefined,
+    lu: pick(n, "lu", "lue", "read") === true,
+    created_at: str(pick(n, "createdAt", "created_at", "date")),
+  };
+}
+
 
 function mapStatut(s: unknown, dateDepart?: string): StatutReservation {
   const v = str(s, "en_attente").toLowerCase().replace(/[\s-]/g, "_");

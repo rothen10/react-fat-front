@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, fcfa } from "@/lib/api";
 import type { Client } from "@/lib/types";
 
 export const Route = createFileRoute("/clients")({
@@ -60,6 +60,7 @@ function ClientsPage() {
   const [edition, setEdition] = useState<Client | null>(null);
   const [creation, setCreation] = useState(false);
   const [aSupprimer, setASupprimer] = useState<Client | null>(null);
+  const [historique, setHistorique] = useState<Client | null>(null);
 
   const { data = [] } = useQuery({ queryKey: ["clients-stats"], queryFn: () => api.clientsStats() });
 
@@ -90,9 +91,10 @@ function ClientsPage() {
         <div>
           <h1 className="text-3xl font-semibold">Clients</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Fiches réutilisables d'un séjour à l'autre : recherchez, créez, modifiez ou supprimez un
-            client.
+            Fiches réutilisables d'un séjour à l'autre : cliquez une ligne pour voir l'historique
+            des réservations, ou utilisez les actions pour modifier et supprimer.
           </p>
+
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
@@ -131,7 +133,11 @@ function ClientsPage() {
               </TableRow>
             ) : null}
             {filtres.map((c) => (
-              <TableRow key={c.client.id}>
+              <TableRow
+                key={c.client.id}
+                className="cursor-pointer"
+                onClick={() => setHistorique(c.client)}
+              >
                 <TableCell className="font-medium">
                   <span className="flex items-center gap-3">
                     <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -150,7 +156,8 @@ function ClientsPage() {
                 <TableCell>{c.client.nationalite ?? "—"}</TableCell>
                 <TableCell className="text-right">{c.nombre_reservations}</TableCell>
                 <TableCell className="text-right">{c.jours_cumules}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+
                   <span className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
@@ -185,6 +192,9 @@ function ClientsPage() {
         }}
         onSaved={invalider}
       />
+
+      <HistoriqueClient client={historique} onClose={() => setHistorique(null)} />
+
 
       <Dialog open={!!aSupprimer} onOpenChange={(o) => !o && setASupprimer(null)}>
         <DialogContent className="sm:max-w-md">
@@ -310,5 +320,63 @@ function Champ({
       <Label>{label}</Label>
       <Input value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
+  );
+}
+
+/** Historique des séjours d'un client. */
+function HistoriqueClient({ client, onClose }: { client: Client | null; onClose: () => void }) {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["reservations-client", client?.id],
+    queryFn: () => api.reservationsClient(client!.id),
+    enabled: !!client,
+  });
+
+  const nuits = (a: string, b: string) =>
+    Math.max(1, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000));
+
+  return (
+    <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{client?.nom_complet}</DialogTitle>
+          <DialogDescription>
+            Réservations enregistrées depuis l'ouverture de la fiche client.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Chargement…</p>
+        ) : data.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Ce client n'a encore aucune réservation.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Séjour</TableHead>
+                <TableHead>Nuits</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead className="text-right">Payé</TableHead>
+                <TableHead className="text-right">Reste</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {r.date_arrivee} → {r.date_depart}
+                  </TableCell>
+                  <TableCell>{nuits(r.date_arrivee, r.date_depart)}</TableCell>
+                  <TableCell className="capitalize">{r.statut.replace("_", " ")}</TableCell>
+                  <TableCell className="text-right">{fcfa(r.montant_paye)}</TableCell>
+                  <TableCell className="text-right">{fcfa(r.montant_restant)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

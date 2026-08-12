@@ -1,138 +1,181 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { LogIn, MapPin, Moon, Sun } from "lucide-react";
+import { api, fcfa } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
+import { ReservationPublique } from "@/components/ReservationPublique";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Logement } from "@/lib/types";
+import logo from "@/assets/logo-kn.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "KN Residence — Connexion à la gestion des séjours" },
+      { title: "KN Residence — Appartements et studios meublés à Douala" },
       {
         name: "description",
         content:
-          "Espace de connexion du personnel KN Residence : réservations, calendriers des 10 logements, paiements en espèces et suivi des créances.",
+          "Découvrez les appartements et studios meublés de KN Residence à Douala : descriptions, tarifs par nuit et réservation en ligne avec paiement Orange Money ou MTN MoMo.",
       },
-      { property: "og:title", content: "KN Residence — Connexion" },
+      { property: "og:title", content: "KN Residence — Appartements et studios meublés" },
       {
         property: "og:description",
-        content: "Gestion des réservations et des paiements de la résidence meublée KN Residence.",
+        content:
+          "Réservez en ligne un logement meublé KN Residence et payez votre avance par Mobile Money.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: LoginPage,
+  component: EspaceCommun,
 });
 
-function LoginPage() {
-  const { session, ready, signIn } = useAuth();
-  const navigate = useNavigate();
-  const [identifiant, setIdentifiant] = useState("gerant");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+type Filtre = "tous" | "appartement" | "studio";
 
-  useEffect(() => {
-    if (ready && session) void navigate({ to: "/logements" });
-  }, [ready, session, navigate]);
+function EspaceCommun() {
+  const { theme, toggle } = useTheme();
+  const [filtre, setFiltre] = useState<Filtre>("tous");
+  const [choisi, setChoisi] = useState<Logement | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const r = await api.login(identifiant, password);
-      signIn({
-        token: r.token,
-        role: r.role,
-        nom: r.nom_complet ?? (r.role === "proprietaire" ? "Propriétaire" : "Gérant"),
-        email: identifiant,
-      });
-      void navigate({ to: "/logements" });
-    } catch {
-      toast.error("Connexion impossible", { description: "Vérifiez vos identifiants." });
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data, isLoading } = useQuery({
+    queryKey: ["logements-publics"],
+    queryFn: () => api.listLogements(),
+  });
+
+  const logements = (data ?? []).filter((l) => filtre === "tous" || l.type === filtre);
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-12 text-sidebar-foreground lg:flex">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-sidebar-primary/20 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-32 -left-20 size-80 rounded-full bg-primary/30 blur-3xl"
-        />
-        <span className="relative flex items-center gap-3 font-display text-2xl font-semibold">
-          <span className="grid size-10 place-items-center rounded-xl bg-sidebar-primary font-bold text-sidebar-primary-foreground">
-            KN
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 border-b border-sidebar-border bg-sidebar/95 text-sidebar-foreground backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
+          <span className="flex items-center gap-2">
+            <img src={logo.url} alt="Logo KN Residence" className="size-9 rounded-lg object-contain" />
+            <span className="font-display text-lg font-semibold">KN Residence</span>
           </span>
-          KN Residence
-        </span>
-        <div className="relative">
-          <h1 className="max-w-md font-display text-4xl leading-tight">
-            La résidence, ses dix logements et chaque franc, au même endroit.
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={toggle}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link to="/login">
+                <LogIn className="size-4" /> Sign in
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <section className="panel-hero relative overflow-hidden">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-16 -top-16 size-72 rounded-full bg-sidebar-primary/25 blur-3xl"
+          />
+          <h1 className="relative max-w-2xl font-display text-4xl font-semibold leading-tight text-sidebar-foreground sm:text-5xl">
+            Des séjours meublés, confortables et prêts à vivre.
           </h1>
-          <p className="mt-4 max-w-md text-sm text-sidebar-foreground/80">
-            Calendriers par logement, réservations saisies par le personnel, avances et soldes en
-            espèces suivis automatiquement.
+          <p className="relative mt-4 max-w-xl text-sidebar-foreground/80">
+            Choisissez votre appartement ou studio, réservez en quelques clics et réglez votre
+            avance par Orange Money ou MTN Mobile Money.
+          </p>
+          <p className="relative mt-6 inline-flex items-center gap-2 text-sm text-sidebar-foreground/70">
+            <MapPin className="size-4" /> Douala · Cameroun
           </p>
         </div>
-        <p className="relative text-xs text-sidebar-foreground/60">Douala · Cameroun</p>
-      </div>
+      </section>
 
-      <div className="flex items-center justify-center px-6 py-16">
-        <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6">
-          <div className="lg:hidden">
-            <span className="grid size-11 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground">
-              KN
-            </span>
-          </div>
+      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="font-display text-3xl font-semibold">Connexion</h2>
+            <h2 className="font-display text-2xl font-semibold">Nos logements</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Comptes Gérant et Propriétaire uniquement.
+              Tarifs par nuit, description et disponibilité du jour.
             </p>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="identifiant">Identifiant</Label>
-            <Input
-              id="identifiant"
-              type="text"
-              required
-              value={identifiant}
-              onChange={(e) => setIdentifiant(e.target.value)}
-              autoComplete="username"
-            />
+          <div className="flex gap-2">
+            {(
+              [
+                ["tous", "Tous"],
+                ["appartement", "Appartements"],
+                ["studio", "Studios"],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={filtre === value ? "default" : "outline"}
+                onClick={() => setFiltre(value)}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
+        {isLoading ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-xl" />
+            ))}
           </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {logements.map((l) => (
+              <article key={l.id} className="card-surface flex flex-col overflow-hidden">
+                <div className="panel-hero flex h-32 items-end p-4">
+                  <span className="font-display text-2xl text-sidebar-foreground">{l.nom}</span>
+                </div>
+                <div className="surface-soft flex flex-1 flex-col gap-3 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="secondary" className="capitalize">
+                      {l.type}
+                    </Badge>
+                    <Badge
+                      className={
+                        l.statut_jour === "occupe"
+                          ? "bg-status-du/25 text-foreground"
+                          : "bg-status-solde/25 text-foreground"
+                      }
+                    >
+                      {l.statut_jour === "occupe" ? "Occupé aujourd'hui" : "Disponible"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{l.disposition}</p>
+                  {l.equipements?.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {l.equipements.slice(0, 4).map((e) => (
+                        <Badge key={e} variant="outline">
+                          {e}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="mt-auto font-display text-xl font-semibold text-primary">
+                    {fcfa(l.tarif_nuit)}
+                    <span className="text-sm font-normal text-muted-foreground"> / nuit</span>
+                  </p>
+                  <Button onClick={() => setChoisi(l)}>Réserver</Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </main>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Connexion…" : "Se connecter"}
-          </Button>
+      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
+        KN Residence · Douala · Paiements sécurisés Mobile Money
+      </footer>
 
-          <p className="text-xs text-muted-foreground">
-            L'identifiant <code>proprietaire</code> ouvre la session avec les droits Propriétaire.
-          </p>
-        </form>
-      </div>
+      <ReservationPublique logement={choisi} onClose={() => setChoisi(null)} />
     </div>
   );
 }
-
