@@ -156,6 +156,8 @@ function seed() {
         montant: paye,
         date_paiement: iso(arrivee),
         agent: "Sylvie",
+        mode: "especes",
+        canal: "especes",
       });
     }
   });
@@ -261,6 +263,8 @@ export const demoApi = {
         montant: avance,
         date_paiement: iso(new Date()),
         agent: r.agent,
+        mode: "especes",
+        canal: "especes",
       });
     }
     return recompute(r);
@@ -275,7 +279,7 @@ export const demoApi = {
     db.paiements = db.paiements.filter((p) => p.reservation_id !== id);
   },
   addPaiement(id: string, p: { montant: number; date_paiement: string; agent: string }) {
-    db.paiements.push({ id: uid(), reservation_id: id, ...p });
+    db.paiements.push({ id: uid(), reservation_id: id, mode: "especes", canal: "especes", ...p });
     const r = db.reservations.find((x) => x.id === id);
     return r ? recompute(r) : undefined;
   },
