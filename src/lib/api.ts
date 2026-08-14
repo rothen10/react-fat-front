@@ -1118,8 +1118,8 @@ export const api = {
    * ============================
    * RÉSERVATION EN LIGNE (public)
    * ============================
-   * Crée le client, la réservation puis initialise
-   * le paiement Moneroo (Orange Money / MTN MoMo).
+   * Un seul appel : POST /paiements/online/reservation-checkout
+   * crée le client, la réservation et le paiement Moneroo.
    */
   reserverEnLigne: async (payload: {
     logement_id: string;
@@ -1129,54 +1129,35 @@ export const api = {
     montant: number;
     operateur: "om" | "momo";
     client: Partial<Client>;
-  }): Promise<{ reservation: Reservation; checkout_url?: string }> => {
-    const clientId = await ensureClient({
-      ...payload.client,
-      nom_complet: payload.client.nom_complet ?? "Client",
-      telephone: payload.client.telephone ?? "",
-    });
-
-    const created = await req<ApiReservation>("/reservations", {
+  }): Promise<{ reservation?: Reservation; checkout_url?: string }> => {
+    const r = await req<Brut>("/paiements/online/reservation-checkout", {
       method: "POST",
       body: JSON.stringify({
+        nomPrenoms: payload.client.nom_complet ?? "Client",
+        telephone: payload.client.telephone ?? "",
+        ...(payload.client.email ? { email: payload.client.email } : {}),
         logementId: payload.logement_id,
-        clientId,
         dateDebut: payload.date_arrivee,
         dateFin: payload.date_depart,
-        ...(payload.nombre_personnes ? { personnes: payload.nombre_personnes } : {}),
-        statut: "en_attente",
-        canal: "en_ligne",
+        ...(payload.nombre_personnes ? { nombrePersonnes: payload.nombre_personnes } : {}),
+        ...(payload.montant > 0 ? { montant: payload.montant } : {}),
+        ...(payload.operateur ? { mode: payload.operateur } : {}),
       }),
     });
 
-    const reservation = mapReservation(created);
+    const checkout_url =
+      (r?.["checkoutUrl"] as string | undefined) ??
+      (r?.["checkout_url"] as string | undefined) ??
+      ((r?.["data"] as Brut | undefined)?.["checkoutUrl"] as string | undefined);
 
-    let checkout_url: string | undefined;
-    if (payload.montant > 0) {
-      const corps = JSON.stringify({
-        reservationId: reservation.id,
-        montant: payload.montant,
-        mode: payload.operateur,
-        telephone: payload.client.telephone,
-      });
-      for (const route of ["/paiements/moneroo", "/paiements/en-ligne", "/paiements"]) {
-        try {
-          const r = await req<Brut>(route, { method: "POST", body: corps });
-          const url =
-            (r?.["checkout_url"] as string | undefined) ??
-            (r?.["checkoutUrl"] as string | undefined) ??
-            (r?.["payment_url"] as string | undefined) ??
-            ((r?.["data"] as Brut | undefined)?.["checkout_url"] as string | undefined);
-          if (url) checkout_url = url;
-          break;
-        } catch {
-          /* on tente la route suivante */
-        }
-      }
-    }
+    const brute = (r?.["reservation"] as ApiReservation | undefined) ?? undefined;
 
-    return checkout_url ? { reservation, checkout_url } : { reservation };
+    return {
+      ...(brute ? { reservation: mapReservation(brute) } : {}),
+      ...(checkout_url ? { checkout_url } : {}),
+    };
   },
+
 
 
   /**
