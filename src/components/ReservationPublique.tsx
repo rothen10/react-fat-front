@@ -101,6 +101,13 @@ export function ReservationPublique({
                 onChange={(v) => set("telephone", v)}
               />
               <Champ
+                label="Email (optionnel)"
+                type="email"
+                value={form.email}
+                onChange={(v) => set("email", v)}
+              />
+
+              <Champ
                 label="Arrivée"
                 type="date"
                 value={form.arrivee}
