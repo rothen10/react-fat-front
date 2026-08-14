@@ -18,6 +18,8 @@ export interface Client {
   id: string;
   nom_complet: string;
   telephone: string;
+  email?: string | undefined;
+
   filiation?: string | undefined;
   lieu_naissance?: string | undefined;
   date_naissance?: string | undefined;
