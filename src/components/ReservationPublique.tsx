@@ -65,7 +65,7 @@ export function ReservationPublique({
         nombre_personnes: Number(form.personnes),
         montant: aRegler,
         operateur: form.operateur,
-        client: { nom_complet: form.nom, telephone: form.telephone },
+        client: { nom_complet: form.nom, telephone: form.telephone, email: form.email || undefined },
       }),
     onSuccess: (r) => {
       if (r.checkout_url) {
@@ -100,6 +100,13 @@ export function ReservationPublique({
                 value={form.telephone}
                 onChange={(v) => set("telephone", v)}
               />
+              <Champ
+                label="Email (optionnel)"
+                type="email"
+                value={form.email}
+                onChange={(v) => set("email", v)}
+              />
+
               <Champ
                 label="Arrivée"
                 type="date"
