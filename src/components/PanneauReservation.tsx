@@ -37,11 +37,23 @@ export function PanneauReservation({
   onChanged: () => void;
 }) {
   const [montant, setMontant] = useState("");
-  const [dates, setDates] = useState<{ id: string; arrivee: string; depart: string } | null>(null);
+  const [dates, setDates] = useState<{
+    id: string;
+    arrivee: string;
+    heureArrivee: string;
+    depart: string;
+    heureDepart: string;
+  } | null>(null);
   const r = reservation;
 
   if (r && dates?.id !== r.id) {
-    setDates({ id: r.id, arrivee: r.date_arrivee, depart: r.date_depart });
+    setDates({
+      id: r.id,
+      arrivee: r.date_arrivee,
+      heureArrivee: r.heure_arrivee,
+      depart: r.date_depart,
+      heureDepart: r.heure_depart,
+    });
   }
 
   const paiement = useMutation({
@@ -64,7 +76,9 @@ export function PanneauReservation({
     mutationFn: () =>
       api.updateReservation(r!.id, {
         date_arrivee: dates!.arrivee,
+        heure_arrivee: dates!.heureArrivee,
         date_depart: dates!.depart,
+        heure_depart: dates!.heureDepart,
       }),
     onSuccess: () => {
       toast.success("Dates du séjour mises à jour");
@@ -100,7 +114,8 @@ export function PanneauReservation({
             <DialogHeader>
               <DialogTitle>{r.client_nom}</DialogTitle>
               <DialogDescription>
-                {r.date_arrivee} → {r.date_depart} · {nuits(r.date_arrivee, r.date_depart)} nuit(s)
+                {r.date_arrivee} {r.heure_arrivee} → {r.date_depart} {r.heure_depart} ·{" "}
+                {nuits(r.date_arrivee, r.date_depart)} nuit(s)
               </DialogDescription>
             </DialogHeader>
 
@@ -111,6 +126,12 @@ export function PanneauReservation({
               <Info label="Déjà payé" value={fcfa(r.montant_paye)} />
               <Info label="Reste à payer" value={fcfa(r.montant_restant)} />
               <Info label="Statut" value={r.statut.replace("_", " ")} />
+              {r.origine ? (
+                <Info label="Origine" value={r.origine === "en_ligne" ? "En ligne" : "Sur place"} />
+              ) : null}
+              {r.date_limite_confirmation ? (
+                <Info label="À confirmer avant" value={r.date_limite_confirmation} />
+              ) : null}
             </dl>
 
             {r.paiements?.length ? (
@@ -148,6 +169,29 @@ export function PanneauReservation({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <div className="space-y-2">
+                <Label htmlFor="harr">Heure d'arrivée</Label>
+                <Input
+                  id="harr"
+                  type="time"
+                  value={dates?.heureArrivee ?? r.heure_arrivee}
+                  onChange={(e) =>
+                    setDates((d) => (d ? { ...d, heureArrivee: e.target.value } : d))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hdep">Heure de départ (prolongation)</Label>
+                <Input
+                  id="hdep"
+                  type="time"
+                  value={dates?.heureDepart ?? r.heure_depart}
+                  onChange={(e) =>
+                    setDates((d) => (d ? { ...d, heureDepart: e.target.value } : d))
+                  }
+                />
+              </div>
+              <div className="hidden sm:block" />
               <div className="space-y-2">
                 <Label htmlFor="arr">Arrivée</Label>
                 <Input
