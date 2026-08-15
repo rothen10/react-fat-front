@@ -27,6 +27,12 @@ import type {
   Reservation,
 } from "./types";
 
+import {
+  HEURE_ARRIVEE_DEFAUT,
+  HEURE_DEPART_DEFAUT,
+  combiner,
+} from "./dates";
+
 /**
  * URL de l'API backend.
  *
@@ -615,15 +621,21 @@ export const api = {
 
             clientId,
 
-            dateDebut:
-              payload[
-                "date_arrivee"
-              ],
+            dateDebut: combiner(
+              String(payload["date_arrivee"]),
+              String(
+                payload["heure_arrivee"] ??
+                  HEURE_ARRIVEE_DEFAUT,
+              ),
+            ),
 
-            dateFin:
-              payload[
-                "date_depart"
-              ],
+            dateFin: combiner(
+              String(payload["date_depart"]),
+              String(
+                payload["heure_depart"] ??
+                  HEURE_DEPART_DEFAUT,
+              ),
+            ),
 
             ...(payload[
               "nombre_personnes"
@@ -753,15 +765,21 @@ export const api = {
             body: JSON.stringify({
               ...(patch.date_arrivee
                 ? {
-                    dateDebut:
+                    dateDebut: combiner(
                       patch.date_arrivee,
+                      patch.heure_arrivee ??
+                        HEURE_ARRIVEE_DEFAUT,
+                    ),
                   }
                 : {}),
 
               ...(patch.date_depart
                 ? {
-                    dateFin:
+                    dateFin: combiner(
                       patch.date_depart,
+                      patch.heure_depart ??
+                        HEURE_DEPART_DEFAUT,
+                    ),
                   }
                 : {}),
 
@@ -1118,45 +1136,47 @@ export const api = {
    * ============================
    * RÉSERVATION EN LIGNE (public)
    * ============================
-   * Un seul appel : POST /paiements/online/reservation-checkout
-   * crée le client, la réservation et le paiement Moneroo.
+   * Le paiement Moneroo est suspendu : la réservation est créée
+   * avec 0 XAF payé et une date limite de confirmation sur place.
+   * POST /reservations/public
    */
   reserverEnLigne: async (payload: {
     logement_id: string;
     date_arrivee: string;
+    heure_arrivee: string;
     date_depart: string;
+    heure_depart: string;
+    date_limite_confirmation: string;
     nombre_personnes?: number;
-    montant: number;
-    operateur: "om" | "momo";
     client: Partial<Client>;
-  }): Promise<{ reservation?: Reservation; checkout_url?: string }> => {
-    const r = await req<Brut>("/paiements/online/reservation-checkout", {
+  }): Promise<{ reservation?: Reservation; note_pdf_url?: string }> => {
+    const r = await req<Brut>("/reservations/public", {
       method: "POST",
       body: JSON.stringify({
         nomPrenoms: payload.client.nom_complet ?? "Client",
         telephone: payload.client.telephone ?? "",
         ...(payload.client.email ? { email: payload.client.email } : {}),
         logementId: payload.logement_id,
-        dateDebut: payload.date_arrivee,
-        dateFin: payload.date_depart,
+        dateDebut: combiner(payload.date_arrivee, payload.heure_arrivee),
+        dateFin: combiner(payload.date_depart, payload.heure_depart),
+        dateLimiteConfirmation: payload.date_limite_confirmation,
         ...(payload.nombre_personnes ? { nombrePersonnes: payload.nombre_personnes } : {}),
-        ...(payload.montant > 0 ? { montant: payload.montant } : {}),
-        ...(payload.operateur ? { mode: payload.operateur } : {}),
       }),
     });
 
-    const checkout_url =
-      (r?.["checkoutUrl"] as string | undefined) ??
-      (r?.["checkout_url"] as string | undefined) ??
-      ((r?.["data"] as Brut | undefined)?.["checkoutUrl"] as string | undefined);
-
-    const brute = (r?.["reservation"] as ApiReservation | undefined) ?? undefined;
+    const brute = ((r?.["reservation"] as ApiReservation | undefined) ??
+      (r as ApiReservation | undefined)) as ApiReservation | undefined;
+    const reservation = brute?.["id"] ? mapReservation(brute) : undefined;
 
     return {
-      ...(brute ? { reservation: mapReservation(brute) } : {}),
-      ...(checkout_url ? { checkout_url } : {}),
+      ...(reservation ? { reservation } : {}),
+      ...(reservation ? { note_pdf_url: `${API_URL}/api/reservations/${reservation.id}/note.pdf` } : {}),
     };
   },
+
+  /** URL de la note PDF d'une réservation. */
+  notePdfUrl: (id: string) => `${API_URL}/api/reservations/${id}/note.pdf`,
+
 
 
 

@@ -28,6 +28,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  HEURE_ARRIVEE_DEFAUT,
+  HEURE_DEPART_DEFAUT,
+  creneau,
+  seChevauchent,
+} from "@/lib/dates";
 import { api, fcfa } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Reservation, StatutReservation } from "@/lib/types";
@@ -378,7 +384,9 @@ function FormulaireReservation({
     telephone: "",
     personnes: "1",
     arrivee: debut,
+    heureArrivee: HEURE_ARRIVEE_DEFAUT,
     depart: fin,
+    heureDepart: HEURE_DEPART_DEFAUT,
     total: String(tarif * nuits(debut, fin)),
     verse: "0",
     agent,
@@ -405,9 +413,15 @@ function FormulaireReservation({
     }));
   }
 
+  const creneauForm = creneau(form.arrivee, form.heureArrivee, form.depart, form.heureDepart);
+  const creneauInvalide = creneauForm.fin <= creneauForm.debut;
   const chevauchement = existantes.some(
     (r) =>
-      r.statut !== "annulee" && form.arrivee < r.date_depart && form.depart > r.date_arrivee,
+      r.statut !== "annulee" &&
+      seChevauchent(
+        creneauForm,
+        creneau(r.date_arrivee, r.heure_arrivee, r.date_depart, r.heure_depart),
+      ),
   );
 
   const m = useMutation({
@@ -426,7 +440,9 @@ function FormulaireReservation({
         client_telephone: form.telephone,
         nombre_personnes: Number(form.personnes),
         date_arrivee: form.arrivee,
+        heure_arrivee: form.heureArrivee,
         date_depart: form.depart,
+        heure_depart: form.heureDepart,
         montant_total: Number(form.total),
         montant_verse: Number(form.verse),
         statut: form.statut,
@@ -572,9 +588,14 @@ function FormulaireReservation({
           </div>
         </div>
 
+        {creneauInvalide ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Le départ doit être postérieur à l'arrivée (heures comprises).
+          </p>
+        ) : null}
         {chevauchement ? (
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            Ces dates chevauchent une réservation existante pour ce logement.
+            Ce créneau horaire chevauche une réservation existante pour ce logement.
           </p>
         ) : null}
 
@@ -584,7 +605,7 @@ function FormulaireReservation({
           </Button>
           <Button
             disabled={
-              chevauchement || (!clientId && (!form.nom || !form.telephone)) || m.isPending
+              chevauchement || creneauInvalide || (!clientId && (!form.nom || !form.telephone)) || m.isPending
             }
 
             onClick={() => m.mutate()}

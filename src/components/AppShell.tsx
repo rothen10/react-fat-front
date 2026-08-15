@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
+  Bell,
   Building2,
   LayoutDashboard,
   LogOut,
@@ -22,6 +23,7 @@ const NAV = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/paiements", label: "Paiements", icon: Wallet },
   { to: "/clients", label: "Clients", icon: Users },
+  { to: "/notifications", label: "Notifications", icon: Bell },
 ] as const;
 
 
@@ -71,7 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="text-sm font-medium">{session.nom}</p>
               <p className="text-xs capitalize text-sidebar-foreground/70">{session.role}</p>
             </div>
-            <Notifications agent={session.nom} />
+            <Notifications />
             <Button
 
               variant="ghost"
