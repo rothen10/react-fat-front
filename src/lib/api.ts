@@ -27,6 +27,12 @@ import type {
   Reservation,
 } from "./types";
 
+import {
+  HEURE_ARRIVEE_DEFAUT,
+  HEURE_DEPART_DEFAUT,
+  combiner,
+} from "./dates";
+
 /**
  * URL de l'API backend.
  *
@@ -615,15 +621,21 @@ export const api = {
 
             clientId,
 
-            dateDebut:
-              payload[
-                "date_arrivee"
-              ],
+            dateDebut: combiner(
+              String(payload["date_arrivee"]),
+              String(
+                payload["heure_arrivee"] ??
+                  HEURE_ARRIVEE_DEFAUT,
+              ),
+            ),
 
-            dateFin:
-              payload[
-                "date_depart"
-              ],
+            dateFin: combiner(
+              String(payload["date_depart"]),
+              String(
+                payload["heure_depart"] ??
+                  HEURE_DEPART_DEFAUT,
+              ),
+            ),
 
             ...(payload[
               "nombre_personnes"
@@ -753,15 +765,21 @@ export const api = {
             body: JSON.stringify({
               ...(patch.date_arrivee
                 ? {
-                    dateDebut:
+                    dateDebut: combiner(
                       patch.date_arrivee,
+                      patch.heure_arrivee ??
+                        HEURE_ARRIVEE_DEFAUT,
+                    ),
                   }
                 : {}),
 
               ...(patch.date_depart
                 ? {
-                    dateFin:
+                    dateFin: combiner(
                       patch.date_depart,
+                      patch.heure_depart ??
+                        HEURE_DEPART_DEFAUT,
+                    ),
                   }
                 : {}),
 
