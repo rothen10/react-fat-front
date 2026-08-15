@@ -143,8 +143,15 @@ function mapStatut(s: unknown, dateDepart?: string): StatutReservation {
 export function mapReservation(r: ApiReservation): Reservation {
   const rawPaiements = pick(r, "paiements", "payments");
   const paiements = (Array.isArray(rawPaiements) ? (rawPaiements as Brut[]) : []).map(mapPaiement);
-  const arrivee = jour(pick(r, "dateDebut", "date_arrivee", "dateArrivee", "date_debut"));
-  const depart = jour(pick(r, "dateFin", "date_depart", "dateDepart", "date_fin"));
+  const brutArrivee = pick(r, "arriveeAt", "dateDebut", "date_arrivee", "dateArrivee", "date_debut");
+  const brutDepart = pick(r, "departAt", "dateFin", "date_depart", "dateDepart", "date_fin");
+  const arrivee = jour(brutArrivee);
+  const depart = jour(brutDepart);
+  const heureArrivee = heureDe(
+    brutArrivee ? String(brutArrivee) : undefined,
+    HEURE_ARRIVEE_DEFAUT,
+  );
+  const heureDepart = heureDe(brutDepart ? String(brutDepart) : undefined, HEURE_DEPART_DEFAUT);
   const nuits = num(pick(r, "nombreNuits", "nombre_nuits")) || nuitsEntre(arrivee, depart);
   const tarif = num(pick(r, "tarifNuit", "tarif_nuit"));
   const total = num(pick(r, "montantTotal", "montant_total")) || tarif * nuits;
@@ -153,6 +160,10 @@ export function mapReservation(r: ApiReservation): Reservation {
   const restantApi = pick(r, "montantRestant", "montant_restant", "solde", "resteAPayer");
   const client = (pick(r, "client") as Brut | undefined) ?? undefined;
   const logement = (pick(r, "logement") as Brut | undefined) ?? undefined;
+  const limite = pick(r, "dateLimiteConfirmation", "date_limite_confirmation");
+  const origineBrute = str(
+    pick(r, "origine", "canal", "source", "type_reservation") ?? "",
+  ).toLowerCase();
 
   return {
     id: str(pick(r, "id")),
@@ -165,6 +176,16 @@ export function mapReservation(r: ApiReservation): Reservation {
       : undefined,
     date_arrivee: arrivee,
     date_depart: depart,
+    heure_arrivee: heureArrivee,
+    heure_depart: heureDepart,
+    date_limite_confirmation: limite ? jour(limite) : undefined,
+    origine: /ligne|online|public|web/.test(origineBrute)
+      ? "en_ligne"
+      : origineBrute
+        ? "sur_place"
+        : limite
+          ? "en_ligne"
+          : undefined,
     motif: pick(r, "motif", "notes") ? str(pick(r, "motif", "notes")) : undefined,
     provenance: pick(r, "provenance") ? str(pick(r, "provenance")) : undefined,
     destination: pick(r, "destination") ? str(pick(r, "destination")) : undefined,
@@ -176,6 +197,7 @@ export function mapReservation(r: ApiReservation): Reservation {
     paiements,
   };
 }
+
 
 export function mapDettes(reservations: Reservation[], logements: Logement[]): Dette[] {
   const nom = (id: string) => logements.find((l) => l.id === id)?.nom ?? "—";
