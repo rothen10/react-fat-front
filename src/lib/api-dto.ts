@@ -16,6 +16,7 @@ import type {
   Reservation,
   StatutReservation,
 } from "./types";
+import { HEURE_ARRIVEE_DEFAUT, HEURE_DEPART_DEFAUT, heureDe } from "./dates";
 
 export type Brut = Record<string, unknown>;
 export type ApiLogement = Brut;
