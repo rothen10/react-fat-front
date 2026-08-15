@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PaiementsRouteImport } from './routes/paiements'
 import { Route as LogementsIndexRouteImport } from './routes/logements.index'
 import { Route as LogementsIdRouteImport } from './routes/logements.$id'
@@ -36,6 +37,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaiementsRoute = PaiementsRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/paiements': typeof PaiementsRoute
   '/logements/$id': typeof LogementsIdRoute
   '/paiement/retour': typeof PaiementRetourRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/paiements': typeof PaiementsRoute
   '/logements/$id': typeof LogementsIdRoute
   '/paiement/retour': typeof PaiementRetourRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/paiements': typeof PaiementsRoute
   '/logements/$id': typeof LogementsIdRoute
   '/paiement/retour': typeof PaiementRetourRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/login'
+    | '/notifications'
     | '/paiements'
     | '/logements/$id'
     | '/paiement/retour'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/login'
+    | '/notifications'
     | '/paiements'
     | '/logements/$id'
     | '/paiement/retour'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/login'
+    | '/notifications'
     | '/paiements'
     | '/logements/$id'
     | '/paiement/retour'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   PaiementsRoute: typeof PaiementsRoute
   LogementsIdRoute: typeof LogementsIdRoute
   PaiementRetourRoute: typeof PaiementRetourRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/paiements': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   PaiementsRoute: PaiementsRoute,
   LogementsIdRoute: LogementsIdRoute,
   PaiementRetourRoute: PaiementRetourRoute,
