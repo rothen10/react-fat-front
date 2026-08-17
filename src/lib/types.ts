@@ -48,6 +48,11 @@ export interface Paiement {
   logement_nom?: string | undefined;
 }
 
+export interface PaiementsPeriode {
+  total: number;
+  nombre: number;
+  parMode: Record<string, number>;
+}
 export interface NotificationItem {
   id: string;
   type: string;

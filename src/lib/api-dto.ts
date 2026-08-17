@@ -13,6 +13,7 @@ import type {
   Logement,
   NotificationItem,
   Paiement,
+  PaiementsPeriode,
   Reservation,
   StatutReservation,
 } from "./types";
@@ -129,7 +130,6 @@ export function mapNotification(n: Brut): NotificationItem {
   };
 }
 
-
 function mapStatut(s: unknown, dateDepart?: string): StatutReservation {
   const v = str(s, "en_attente").toLowerCase().replace(/[\s-]/g, "_");
   if (v.startsWith("annul")) return "annulee";
@@ -198,7 +198,6 @@ export function mapReservation(r: ApiReservation): Reservation {
     paiements,
   };
 }
-
 
 export function mapDettes(reservations: Reservation[], logements: Logement[]): Dette[] {
   const nom = (id: string) => logements.find((l) => l.id === id)?.nom ?? "—";
@@ -296,5 +295,34 @@ export function mapDashboard(
             .reduce((s, r) => s + r.montant_restant, 0),
     revenus,
     occupation_par_logement: occupation,
+  };
+}
+
+/**
+ * GET /api/dashboard/payments?period=day|week|month|year
+ *
+ * Total, nombre et répartition par mode des paiements confirmés
+ * (l'API exclut déjà les paiements en attente, échoués et remboursés).
+ */
+export function mapPaiementsPeriode(d: Brut): PaiementsPeriode {
+  const parModeApi = pick(
+    d,
+    "parMode",
+    "repartitionParMode",
+    "repartition",
+    "parModePaiement",
+  );
+
+  const parMode: Record<string, number> = {};
+  if (parModeApi && typeof parModeApi === "object" && !Array.isArray(parModeApi)) {
+    for (const [k, v] of Object.entries(parModeApi as Brut)) {
+      parMode[k] = num(v);
+    }
+  }
+
+  return {
+    total: num(pick(d, "total", "montantTotal", "totalMontant")),
+    nombre: num(pick(d, "nombre", "count", "nombrePaiements")),
+    parMode,
   };
 }

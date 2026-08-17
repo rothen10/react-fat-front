@@ -45,7 +45,7 @@ import {
  */
 export const API_URL =
   (import.meta.env["VITE_API_URL"] as string) ??
-  "https://kn-residence-api.vercel.app";
+  "http://localhost:3001";
 
 /**
  * Indique si l'API est actuellement inaccessible
@@ -751,62 +751,28 @@ export const api = {
     return reservation;
   },
 
-  updateReservation:
-    async (
-      id: string,
-      patch: Partial<Reservation>,
-    ) => {
-      const updated =
-        await req<ApiReservation>(
-          `/reservations/${id}`,
-          {
-            method: "PATCH",
-
-            body: JSON.stringify({
-              ...(patch.date_arrivee
-                ? {
-                    dateDebut: combiner(
-                      patch.date_arrivee,
-                      patch.heure_arrivee ??
-                        HEURE_ARRIVEE_DEFAUT,
-                    ),
-                  }
-                : {}),
-
-              ...(patch.date_depart
-                ? {
-                    dateFin: combiner(
-                      patch.date_depart,
-                      patch.heure_depart ??
-                        HEURE_DEPART_DEFAUT,
-                    ),
-                  }
-                : {}),
-
-              ...(patch.statut
-                ? {
-                    statut:
-                      patch.statut ===
-                      "terminee"
-                        ? "confirmee"
-                        : patch.statut,
-                  }
-                : {}),
-
-              ...(patch.motif
-                ? {
-                    motif:
-                      patch.motif,
-                  }
-                : {}),
-            }),
-          },
-        );
-
-      return mapReservation(
-        updated,
-      );
-    },
+updateReservation: async (id: string, patch: Partial<Reservation>) => {
+  const updated = await req<ApiReservation>(`/reservations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      ...(patch.date_arrivee
+        ? { dateDebut: combiner(patch.date_arrivee, patch.heure_arrivee ?? HEURE_ARRIVEE_DEFAUT) }
+        : {}),
+      ...(patch.date_depart
+        ? { dateFin: combiner(patch.date_depart, patch.heure_depart ?? HEURE_DEPART_DEFAUT) }
+        : {}),
+      ...(patch.statut
+        ? { statut: patch.statut === "terminee" ? "confirmee" : patch.statut }
+        : {}),
+      ...(patch.motif ? { motif: patch.motif } : {}),
+      ...(patch.date_limite_confirmation
+        ? { dateLimiteConfirmation: patch.date_limite_confirmation }
+        : {}),
+      ...(patch.montant_total != null ? { montantTotal: patch.montant_total } : {}),
+    }),
+  });
+  return mapReservation(updated);
+},
 
   deleteReservation:
     async (id: string) => {
@@ -918,6 +884,26 @@ export const api = {
       periode,
     );
   },
+
+  /**
+ * GET /dashboard/payments?period=day|week|month|year
+ * Total, nombre et répartition par mode des paiements confirmés.
+ */
+paiementsPeriode: async (
+  periode: string,
+): Promise<{ total: number; nombre: number; parMode: Record<string, number> }> => {
+  const r = await req<{
+    total?: number;
+    nombre?: number;
+    parMode?: Record<string, number>;
+  }>(`/dashboard/payments?period=${periodeApi(periode)}`);
+
+  return {
+    total: r?.total ?? 0,
+    nombre: r?.nombre ?? 0,
+    parMode: r?.parMode ?? {},
+  };
+},
 
   /**
    * ============================
@@ -1080,31 +1066,38 @@ export const api = {
   },
 
   /**
-   * ============================
-   * NOTIFICATIONS
-   * ============================
-   */
-  notifications: async (): Promise<NotificationItem[]> => {
-    try {
-      const list = await req<Brut[]>("/notifications");
-      if (Array.isArray(list)) return list.map(mapNotification);
-    } catch {
-      /* repli : nouvelles réservations en attente */
-    }
+ * ============================
+ * NOTIFICATIONS
+ * ============================
+ */
+notifications: async (
+  params: { lu?: boolean } = {},
+): Promise<NotificationItem[]> => {
+  const list = await req<Brut[]>(
+    `/notifications${qs({
+      lu: params.lu === undefined ? undefined : String(params.lu),
+    })}`,
+  );
+  return (Array.isArray(list) ? list : []).map(mapNotification);
+},
 
-    const reservations = await fetchReservations();
-    return reservations
-      .filter((r) => r.statut === "en_attente")
-      .map((r) => ({
-        id: `res-${r.id}`,
-        type: "nouvelle_reservation",
-        titre: "Nouvelle réservation",
-        message: `${r.client_nom} — ${r.date_arrivee} → ${r.date_depart}`,
-        reservation_id: r.id,
-        lu: false,
-        created_at: r.date_arrivee,
-      }));
-  },
+unreadNotificationsCount: async (): Promise<number> => {
+  const r = await req<{ count?: number }>("/notifications/unread-count");
+  return r?.count ?? 0;
+},
+
+notificationStatus: (id: string) =>
+  req<{ id: string; lu: boolean; createdAt: string }>(
+    `/notifications/${id}/status`,
+  ),
+
+marquerNotificationLue: async (id: string) => {
+  await req<void>(`/notifications/${id}/read`, { method: "PATCH" });
+},
+
+marquerToutesNotificationsLues: async () => {
+  await req<void>("/notifications/read-all", { method: "PATCH" });
+},
 
   marquerNotificationLue: async (id: string) => {
     if (id.startsWith("res-")) return;

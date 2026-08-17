@@ -64,22 +64,22 @@ function PageNotifications() {
 
   const rafraichir = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
 
-  async function ouvrir(n: NotificationItem) {
-    if (!n.lu) {
-      try {
-        await api.marquerNotificationLue(n.id);
-        rafraichir();
-      } catch {
-        /* lecture optionnelle */
-      }
-    }
-    if (!n.reservation_id) return;
+async function ouvrir(n: NotificationItem) {
+  if (!n.lu) {
     try {
-      setDetail(await api.getReservation(n.reservation_id));
+      await api.marquerNotificationLue(n.id); // -> PATCH /notifications/:id/read
+      rafraichir();
     } catch {
-      /* réservation introuvable */
+      /* lecture optionnelle */
     }
   }
+  if (!n.reservation_id) return;
+  try {
+    setDetail(await api.getReservation(n.reservation_id));
+  } catch {
+    /* réservation introuvable */
+  }
+}
 
   return (
     <AppShell>
@@ -108,16 +108,16 @@ function PageNotifications() {
             </Button>
           ))}
           <Button
-            size="sm"
-            variant="secondary"
-            disabled={!nonLues.length}
-            onClick={async () => {
-              await Promise.allSettled(nonLues.map((n) => api.marquerNotificationLue(n.id)));
-              rafraichir();
-            }}
-          >
-            <CheckCheck className="size-4" /> Tout marquer comme lu
-          </Button>
+  size="sm"
+  variant="secondary"
+  disabled={!nonLues.length}
+  onClick={async () => {
+    await api.marquerToutesNotificationsLues(); // -> PATCH /notifications/read-all
+    rafraichir();
+  }}
+>
+  <CheckCheck className="size-4" /> Tout marquer comme lu
+</Button>
         </div>
       </div>
 

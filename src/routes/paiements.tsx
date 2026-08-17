@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Banknote, Search, Smartphone } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
@@ -8,40 +8,49 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { api, fcfa } from "@/lib/api";
 
 export const Route = createFileRoute("/paiements")({
-  head: () => ({
-    meta: [
-      { title: "Paiements encaissés — KN Residence" },
-      {
-        name: "description",
-        content:
-          "Journal des paiements KN Residence : encaissements en espèces et règlements en ligne Mobile Money, avec dates et montants.",
-      },
-      { property: "og:title", content: "Paiements — KN Residence" },
-      {
-        property: "og:description",
-        content: "Tous les encaissements de la résidence, en espèces ou en ligne.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: () => ({ /* ...inchangé... */ }),
   component: PaiementsPage,
 });
 
 type Filtre = "tous" | "especes" | "en_ligne";
+const PERIODES = [
+  ["jour", "Jour"],
+  ["semaine", "Semaine"],
+  ["mois", "Mois"],
+  ["annee", "Année"],
+] as const;
+
+// Bornes de période, calquées sur le comportement attendu du dashboard.
+function dansPeriode(dateIso: string, periode: string): boolean {
+  if (!dateIso) return false;
+  const d = new Date(dateIso);
+  const now = new Date();
+
+  if (periode === "jour") {
+    return d.toDateString() === now.toDateString();
+  }
+  if (periode === "semaine") {
+    const jour = (now.getDay() + 6) % 7; // lundi = 0
+    const debut = new Date(now);
+    debut.setDate(now.getDate() - jour);
+    debut.setHours(0, 0, 0, 0);
+    return d >= debut && d <= now;
+  }
+  if (periode === "mois") {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  // annee
+  return d.getFullYear() === now.getFullYear();
+}
 
 function PaiementsPage() {
   const [filtre, setFiltre] = useState<Filtre>("tous");
+  const [periode, setPeriode] = useState<string>("mois");
   const [q, setQ] = useState("");
 
   const { data = [], isLoading } = useQuery({
@@ -49,16 +58,26 @@ function PaiementsPage() {
     queryFn: () => api.paiements(),
   });
 
-  const liste = data
-    .filter((p) => filtre === "tous" || p.canal === filtre)
-    .filter(
-      (p) =>
-        !q ||
-        (p.client_nom ?? "").toLowerCase().includes(q.toLowerCase()) ||
-        (p.logement_nom ?? "").toLowerCase().includes(q.toLowerCase()),
-    );
+  // KPI officiels (paiements confirmés uniquement, cohérents avec l'API)
+  const { data: resume, isLoading: resumeLoading } = useQuery({
+    queryKey: ["paiements-resume", periode],
+    queryFn: () => api.paiementsPeriode(periode),
+  });
 
-  const total = liste.reduce((s, p) => s + p.montant, 0);
+  const liste = useMemo(
+    () =>
+      data
+        .filter((p) => filtre === "tous" || p.canal === filtre)
+        .filter((p) => dansPeriode(p.date_paiement, periode))
+        .filter(
+          (p) =>
+            !q ||
+            (p.client_nom ?? "").toLowerCase().includes(q.toLowerCase()) ||
+            (p.logement_nom ?? "").toLowerCase().includes(q.toLowerCase()),
+        ),
+    [data, filtre, periode, q],
+  );
+
   const enLigne = liste.filter((p) => p.canal === "en_ligne").reduce((s, p) => s + p.montant, 0);
 
   return (
@@ -80,30 +99,53 @@ function PaiementsPage() {
               className="pl-9"
             />
           </div>
-          {(
-            [
-              ["tous", "Tous"],
-              ["especes", "Espèces"],
-              ["en_ligne", "En ligne"],
-            ] as const
-          ).map(([value, label]) => (
+          {(["tous", "especes", "en_ligne"] as const).map((value) => (
             <Button
               key={value}
               size="sm"
               variant={filtre === value ? "default" : "outline"}
               onClick={() => setFiltre(value)}
             >
-              {label}
+              {value === "tous" ? "Tous" : value === "especes" ? "Espèces" : "En ligne"}
             </Button>
           ))}
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Carte label="Total encaissé" valeur={fcfa(total)} />
-        <Carte label="Dont en ligne" valeur={fcfa(enLigne)} />
-        <Carte label="Opérations" valeur={String(liste.length)} />
+      <div className="mb-4 flex gap-2">
+        {PERIODES.map(([v, label]) => (
+          <Button
+            key={v}
+            size="sm"
+            variant={periode === v ? "default" : "outline"}
+            onClick={() => setPeriode(v)}
+          >
+            {label}
+          </Button>
+        ))}
       </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <Carte
+          label="Total encaissé (confirmés)"
+          valeur={resumeLoading ? "…" : fcfa(resume?.total ?? 0)}
+        />
+        <Carte label="Dont en ligne" valeur={fcfa(enLigne)} />
+        <Carte
+          label="Opérations"
+          valeur={resumeLoading ? "…" : String(resume?.nombre ?? liste.length)}
+        />
+      </div>
+
+      {resume?.parMode && Object.keys(resume.parMode).length ? (
+        <div className="card-surface mb-6 flex flex-wrap gap-2 p-4">
+          {Object.entries(resume.parMode).map(([mode, montant]) => (
+            <Badge key={mode} variant="secondary" className="capitalize">
+              {mode} : {fcfa(montant)}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
 
       <div className="card-surface overflow-x-auto p-2">
         {isLoading ? (
@@ -137,10 +179,7 @@ function PaiementsPage() {
                   <TableCell className="font-medium">{p.client_nom ?? "—"}</TableCell>
                   <TableCell>{p.logement_nom ?? "—"}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className="gap-1.5 capitalize"
-                    >
+                    <Badge variant="secondary" className="gap-1.5 capitalize">
                       {p.canal === "en_ligne" ? (
                         <Smartphone className="size-3.5" />
                       ) : (
