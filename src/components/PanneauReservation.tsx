@@ -174,10 +174,19 @@ export function PanneauReservation({
                   value={montant}
                   onChange={(e) => setMontant(e.target.value)}
                 />
-                <Button disabled={!montant || paiement.isPending} onClick={() => paiement.mutate()}>
-                  Encaisser
+                <Button
+                  disabled={paiementInvalide || paiement.isPending}
+                  onClick={() => paiement.mutate()}
+                >
+                  {paiement.isPending ? "…" : "Encaisser"}
                 </Button>
               </div>
+              {montant && paiementInvalide ? (
+                <p className="text-xs text-destructive">
+                  Le montant doit être supérieur à 0 et ne pas dépasser le reste à payer (
+                  {fcfa(r.montant_restant)}).
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
