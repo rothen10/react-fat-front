@@ -454,11 +454,40 @@ function FormulaireReservation({
 
     onSuccess: () => {
       toast.success("Réservation enregistrée");
+      setClientId("");
+      setNouveauClient(false);
+      setForm((f) => ({
+        ...f,
+        nom: "",
+        telephone: "",
+        nationalite: "",
+        profession: "",
+        piece: "",
+        personnes: "1",
+        verse: "0",
+        motif: "",
+        provenance: "",
+        destination: "",
+        heureArrivee: HEURE_ARRIVEE_DEFAUT,
+        heureDepart: HEURE_DEPART_DEFAUT,
+        statut: "en_attente" as StatutReservation,
+      }));
+      setDerniereCle("");
       onOpenChange(false);
       onSaved();
     },
-    onError: () => toast.error("Enregistrement impossible"),
+    onError: (e: Error) => toast.error(e.message || "Enregistrement impossible"),
   });
+
+  const totalNum = Number(form.total);
+  const verseNum = Number(form.verse);
+  const montantsInvalides =
+    !Number.isFinite(totalNum) ||
+    totalNum <= 0 ||
+    !Number.isFinite(verseNum) ||
+    verseNum < 0 ||
+    verseNum > totalNum;
+  const personnesInvalide = !(Number(form.personnes) >= 1);
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -551,6 +580,12 @@ function FormulaireReservation({
             }}
           />
           <Champ
+            label="Heure d'arrivée"
+            type="time"
+            value={form.heureArrivee}
+            onChange={(v) => set("heureArrivee", v)}
+          />
+          <Champ
             label="Date de départ"
             type="date"
             value={form.depart}
@@ -558,6 +593,12 @@ function FormulaireReservation({
               set("depart", v);
               set("total", String(tarif * nuits(form.arrivee, v)));
             }}
+          />
+          <Champ
+            label="Heure de départ"
+            type="time"
+            value={form.heureDepart}
+            onChange={(v) => set("heureDepart", v)}
           />
           <Champ
             label={`Montant total (${nuits(form.arrivee, form.depart)} nuit(s))`}
@@ -598,6 +639,21 @@ function FormulaireReservation({
             Ce créneau horaire chevauche une réservation existante pour ce logement.
           </p>
         ) : null}
+        {montantsInvalides ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Le montant total doit être supérieur à 0 et l'avance ne peut pas le dépasser.
+          </p>
+        ) : null}
+        {personnesInvalide ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Le nombre de personnes doit être d'au moins 1.
+          </p>
+        ) : null}
+        {!clientId && !nouveauClient ? (
+          <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            Sélectionnez un client existant ou cliquez sur « Nouveau client ».
+          </p>
+        ) : null}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -605,12 +661,16 @@ function FormulaireReservation({
           </Button>
           <Button
             disabled={
-              chevauchement || creneauInvalide || (!clientId && (!form.nom || !form.telephone)) || m.isPending
+              chevauchement ||
+              creneauInvalide ||
+              montantsInvalides ||
+              personnesInvalide ||
+              (!clientId && (!form.nom.trim() || !form.telephone.trim())) ||
+              m.isPending
             }
-
             onClick={() => m.mutate()}
           >
-            Enregistrer
+            {m.isPending ? "Enregistrement…" : "Enregistrer"}
           </Button>
         </DialogFooter>
       </DialogContent>

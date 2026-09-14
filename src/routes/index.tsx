@@ -18,13 +18,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Découvrez les appartements et studios meublés de KN Residence à Douala : descriptions, tarifs par nuit et réservation en ligne avec paiement Orange Money ou MTN MoMo.",
+          "Découvrez les appartements et studios meublés de KN Residence à Douala : descriptions, tarifs par nuit et réservation en ligne sans paiement, à confirmer sur place.",
       },
       { property: "og:title", content: "KN Residence — Appartements et studios meublés" },
       {
         property: "og:description",
         content:
-          "Réservez en ligne un logement meublé KN Residence et payez votre avance par Mobile Money.",
+          "Réservez en ligne un logement meublé KN Residence sans payer et confirmez sur place avant la date limite.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -84,8 +84,8 @@ function EspaceCommun() {
             Des séjours meublés, confortables et prêts à vivre.
           </h1>
           <p className="relative mt-4 max-w-xl text-sidebar-foreground/80">
-            Choisissez votre appartement ou studio, réservez en quelques clics et réglez votre
-            avance par Orange Money ou MTN Mobile Money.
+            Choisissez votre appartement ou studio et réservez en quelques clics, sans payer en
+            ligne : vous confirmez sur place en espèces avant la date limite que vous choisissez.
           </p>
           <p className="relative mt-6 inline-flex items-center gap-2 text-sm text-sidebar-foreground/70">
             <MapPin className="size-4" /> Douala · Cameroun
@@ -172,7 +172,7 @@ function EspaceCommun() {
       </main>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        KN Residence · Douala · Paiements sécurisés Mobile Money
+        KN Residence · Douala · Réservation en ligne, confirmation sur place
       </footer>
 
       <ReservationPublique logement={choisi} onClose={() => setChoisi(null)} />

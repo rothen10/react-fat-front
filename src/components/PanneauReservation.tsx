@@ -69,7 +69,7 @@ export function PanneauReservation({
       onChanged();
       onClose();
     },
-    onError: () => toast.error("Paiement impossible"),
+    onError: (e: Error) => toast.error(e.message || "Paiement impossible"),
   });
 
   const majDates = useMutation({
@@ -85,16 +85,20 @@ export function PanneauReservation({
       onChanged();
       onClose();
     },
-    onError: () => toast.error("Modification impossible"),
+    onError: (e: Error) => toast.error(e.message || "Modification impossible"),
   });
 
   const changerStatut = useMutation({
-    mutationFn: (statut: StatutReservation) => api.updateReservation(r!.id, { statut }),
+    mutationFn: (statut: StatutReservation) =>
+      statut === "annulee"
+        ? api.annulerReservation(r!.id)
+        : api.updateReservation(r!.id, { statut }),
     onSuccess: () => {
       toast.success("Réservation mise à jour");
       onChanged();
       onClose();
     },
+    onError: (e: Error) => toast.error(e.message || "Mise à jour impossible"),
   });
 
   const supprimer = useMutation({
@@ -104,7 +108,15 @@ export function PanneauReservation({
       onChanged();
       onClose();
     },
+    onError: (e: Error) => toast.error(e.message || "Suppression impossible"),
   });
+
+  const montantNum = Number(montant);
+  const paiementInvalide =
+    !montant ||
+    !Number.isFinite(montantNum) ||
+    montantNum <= 0 ||
+    (r ? montantNum > r.montant_restant : true);
 
   return (
     <Dialog open={!!r} onOpenChange={(o) => !o && onClose()}>
@@ -162,10 +174,19 @@ export function PanneauReservation({
                   value={montant}
                   onChange={(e) => setMontant(e.target.value)}
                 />
-                <Button disabled={!montant || paiement.isPending} onClick={() => paiement.mutate()}>
-                  Encaisser
+                <Button
+                  disabled={paiementInvalide || paiement.isPending}
+                  onClick={() => paiement.mutate()}
+                >
+                  {paiement.isPending ? "…" : "Encaisser"}
                 </Button>
               </div>
+              {montant && paiementInvalide ? (
+                <p className="text-xs text-destructive">
+                  Le montant doit être supérieur à 0 et ne pas dépasser le reste à payer (
+                  {fcfa(r.montant_restant)}).
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">

@@ -44,8 +44,8 @@ import {
  * l'URL suivante sera utilisée.
  */
 export const API_URL =
-  (import.meta.env["VITE_API_URL"] as string) ??
-  "https://kn-residence-api.vercel.app";
+  (import.meta.env["VITE_API_URL"] as string | undefined) ??
+  "http://localhost:3001";
 
 /**
  * Indique si l'API est actuellement inaccessible
@@ -687,6 +687,12 @@ export const api = {
                 }
               : {}),
 
+            ...(payload["montant_total"]
+              ? {
+                  montantTotal: Number(payload["montant_total"]),
+                }
+              : {}),
+
             statut:
               payload[
                 "statut"
@@ -729,6 +735,11 @@ export const api = {
               reservation.id,
 
             montant: avance,
+
+            mode: "especes",
+
+            datePaiement:
+              new Date().toISOString(),
           }),
         },
       );
@@ -1041,13 +1052,8 @@ paiementsPeriode: async (
    * dans les réservations si la route n'existe pas.
    */
   paiements: async (): Promise<Paiement[]> => {
-    try {
-      const list = await req<ApiPaiement[]>("/paiements");
-      if (Array.isArray(list) && list.length) return list.map(mapPaiement);
-    } catch {
-      /* route absente : on reconstruit depuis les réservations */
-    }
-
+    // GET /paiements exige un reservationId : le journal global est
+    // reconstruit à partir des paiements imbriqués dans les réservations.
     const [reservations, logements] = await Promise.all([
       fetchReservations(),
       fetchLogements(),
@@ -1099,31 +1105,12 @@ marquerToutesNotificationsLues: async () => {
   await req<void>("/notifications/read-all", { method: "PATCH" });
 },
 
-  marquerNotificationLue: async (id: string) => {
-    if (id.startsWith("res-")) return;
-    try {
-      await req<void>(`/notifications/${id}/lu`, { method: "PATCH" });
-    } catch {
-      await req<void>(`/notifications/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ lu: true }),
-      });
-    }
-  },
-
   /**
    * Réservations d'un client donné.
+   * GET /reservations?clientId=…
    */
-  reservationsClient: async (clientId: string): Promise<Reservation[]> => {
-    try {
-      const list = await req<ApiReservation[]>(`/clients/${clientId}/reservations`);
-      if (Array.isArray(list)) return list.map(mapReservation);
-    } catch {
-      /* repli : filtrage côté client */
-    }
-    const all = await fetchReservations();
-    return all.filter((r) => r.client_id === clientId);
-  },
+  reservationsClient: async (clientId: string): Promise<Reservation[]> =>
+    fetchReservations({ clientId }),
 
   /**
    * ============================
