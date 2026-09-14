@@ -687,6 +687,12 @@ export const api = {
                 }
               : {}),
 
+            ...(payload["montant_total"]
+              ? {
+                  montantTotal: Number(payload["montant_total"]),
+                }
+              : {}),
+
             statut:
               payload[
                 "statut"
