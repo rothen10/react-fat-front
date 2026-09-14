@@ -18,13 +18,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Découvrez les appartements et studios meublés de KN Residence à Douala : descriptions, tarifs par nuit et réservation en ligne avec paiement Orange Money ou MTN MoMo.",
+          "Découvrez les appartements et studios meublés de KN Residence à Douala : descriptions, tarifs par nuit et réservation en ligne sans paiement, à confirmer sur place.",
       },
       { property: "og:title", content: "KN Residence — Appartements et studios meublés" },
       {
         property: "og:description",
         content:
-          "Réservez en ligne un logement meublé KN Residence et payez votre avance par Mobile Money.",
+          "Réservez en ligne un logement meublé KN Residence sans payer et confirmez sur place avant la date limite.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
