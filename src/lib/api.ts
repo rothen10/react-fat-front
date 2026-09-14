@@ -735,6 +735,11 @@ export const api = {
               reservation.id,
 
             montant: avance,
+
+            mode: "especes",
+
+            datePaiement:
+              new Date().toISOString(),
           }),
         },
       );
