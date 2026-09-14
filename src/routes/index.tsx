@@ -84,8 +84,8 @@ function EspaceCommun() {
             Des séjours meublés, confortables et prêts à vivre.
           </h1>
           <p className="relative mt-4 max-w-xl text-sidebar-foreground/80">
-            Choisissez votre appartement ou studio, réservez en quelques clics et réglez votre
-            avance par Orange Money ou MTN Mobile Money.
+            Choisissez votre appartement ou studio et réservez en quelques clics, sans payer en
+            ligne : vous confirmez sur place en espèces avant la date limite que vous choisissez.
           </p>
           <p className="relative mt-6 inline-flex items-center gap-2 text-sm text-sidebar-foreground/70">
             <MapPin className="size-4" /> Douala · Cameroun
@@ -172,7 +172,7 @@ function EspaceCommun() {
       </main>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        KN Residence · Douala · Paiements sécurisés Mobile Money
+        KN Residence · Douala · Réservation en ligne, confirmation sur place
       </footer>
 
       <ReservationPublique logement={choisi} onClose={() => setChoisi(null)} />
