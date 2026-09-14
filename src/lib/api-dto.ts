@@ -1,5 +1,5 @@
 /**
- * Contrats renvoyés par l'API NestJS KN Résidence (http://localhost:3001/api)
+ * Contrats renvoyés par l'API NestJS KN Résidence (http://localhost:3001/api) 
  * et adaptateurs vers les types internes de l'interface.
  *
  * L'API expose ses champs en camelCase (Prisma) mais certaines routes
