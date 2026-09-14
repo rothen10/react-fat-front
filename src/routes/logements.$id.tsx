@@ -454,11 +454,40 @@ function FormulaireReservation({
 
     onSuccess: () => {
       toast.success("Réservation enregistrée");
+      setClientId("");
+      setNouveauClient(false);
+      setForm((f) => ({
+        ...f,
+        nom: "",
+        telephone: "",
+        nationalite: "",
+        profession: "",
+        piece: "",
+        personnes: "1",
+        verse: "0",
+        motif: "",
+        provenance: "",
+        destination: "",
+        heureArrivee: HEURE_ARRIVEE_DEFAUT,
+        heureDepart: HEURE_DEPART_DEFAUT,
+        statut: "en_attente" as StatutReservation,
+      }));
+      setDerniereCle("");
       onOpenChange(false);
       onSaved();
     },
-    onError: () => toast.error("Enregistrement impossible"),
+    onError: (e: Error) => toast.error(e.message || "Enregistrement impossible"),
   });
+
+  const totalNum = Number(form.total);
+  const verseNum = Number(form.verse);
+  const montantsInvalides =
+    !Number.isFinite(totalNum) ||
+    totalNum <= 0 ||
+    !Number.isFinite(verseNum) ||
+    verseNum < 0 ||
+    verseNum > totalNum;
+  const personnesInvalide = !(Number(form.personnes) >= 1);
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
