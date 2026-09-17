@@ -693,6 +693,27 @@ export const api = {
                 }
               : {}),
 
+            /**
+             * Réservation saisie au comptoir : le client est
+             * déjà sur place, il n'y a donc pas de délai de
+             * confirmation à distance. L'API exige néanmoins
+             * une date antérieure au début du séjour : on
+             * envoie l'instant d'arrivée moins une minute.
+             */
+            origine: "sur_place",
+
+            dateLimiteConfirmation: new Date(
+              new Date(
+                combiner(
+                  String(payload["date_arrivee"]),
+                  String(
+                    payload["heure_arrivee"] ??
+                      HEURE_ARRIVEE_DEFAUT,
+                  ),
+                ),
+              ).getTime() - 60000,
+            ).toISOString(),
+
             statut:
               payload[
                 "statut"
@@ -701,6 +722,7 @@ export const api = {
                 ? "en_attente"
                 : "confirmee",
           }),
+
         },
       );
 
