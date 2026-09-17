@@ -141,9 +141,10 @@ export function PanneauReservation({
               {r.origine ? (
                 <Info label="Origine" value={r.origine === "en_ligne" ? "En ligne" : "Sur place"} />
               ) : null}
-              {r.date_limite_confirmation ? (
+              {r.date_limite_confirmation && r.origine === "en_ligne" ? (
                 <Info label="À confirmer avant" value={r.date_limite_confirmation} />
               ) : null}
+
             </dl>
 
             {r.paiements?.length ? (
