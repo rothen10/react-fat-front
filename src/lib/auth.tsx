@@ -1,62 +1,40 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Role } from "./types";
-
-interface Session {
-  token: string;
-  role: Role;
-  nom: string;
-  email: string;
-}
+import { useQueryClient } from "@tanstack/react-query";
+import { getSession, setSession, subscribeSession, type Session } from "./session";
 
 interface AuthCtx {
   session: Session | null;
   ready: boolean;
   signIn: (s: Session) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
-
-const Ctx = createContext<AuthCtx>({
-  session: null,
-  ready: false,
-  signIn: () => {},
-  signOut: () => {},
-});
+const Ctx = createContext<AuthCtx>({ session: null, ready: false, signIn: () => {}, signOut: async () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, updateSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-
+  const qc = useQueryClient();
   useEffect(() => {
-    const raw = localStorage.getItem("kn_session");
-    if (raw) {
-      try {
-        setSession(JSON.parse(raw) as Session);
-      } catch {
-        localStorage.removeItem("kn_session");
-      }
-    }
+    // Remove credentials persisted by earlier frontend versions; never restore them.
+    localStorage.removeItem("kn_session");
+    localStorage.removeItem("kn_token");
+    updateSession(getSession());
     setReady(true);
-  }, []);
-
-  const value = useMemo<AuthCtx>(
-    () => ({
-      session,
-      ready,
-      signIn: (s) => {
-        localStorage.setItem("kn_session", JSON.stringify(s));
-        localStorage.setItem("kn_token", s.token);
-        setSession(s);
-      },
-      signOut: () => {
-        localStorage.removeItem("kn_session");
-        localStorage.removeItem("kn_token");
-        setSession(null);
-      },
-    }),
-    [session, ready],
-  );
-
+    return subscribeSession(() => {
+      updateSession(getSession());
+      void qc.cancelQueries();
+      qc.clear();
+    });
+  }, [qc]);
+  const value = useMemo<AuthCtx>(() => ({
+    session, ready,
+    signIn: (s) => setSession(s),
+    signOut: async () => {
+      await qc.cancelQueries();
+      qc.clear();
+      setSession(null);
+    },
+  }), [session, ready, qc]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
-
 export const useAuth = () => useContext(Ctx);

@@ -53,8 +53,8 @@ function LoginPage() {
         email: identifiant,
       });
       void navigate({ to: "/logements" });
-    } catch {
-      toast.error("Connexion impossible", { description: "Vérifiez vos identifiants." });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Connexion impossible");
     } finally {
       setLoading(false);
     }

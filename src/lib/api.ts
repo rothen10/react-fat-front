@@ -16,6 +16,9 @@ import {
   type Brut,
 } from "./api-dto";
 
+import { getToken, setSession } from "./session";
+import { confirmationIso, negotiatedTotal, validateStay } from "./reservation-rules";
+
 import type {
   Client,
   ClientStat,
@@ -121,14 +124,13 @@ async function req<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("kn_token")
-      : null;
+  const token = getToken();
+  const isPrivateReservation = path.startsWith("/reservations") && !path.startsWith("/reservations/public");
+  if (isPrivateReservation && !token) throw new HttpError(401, "Connectez-vous pour consulter les réservations.");
 
   try {
     const res = await fetch(
-      `${API_URL}/api${path}`,
+      `${API_URL.replace(/\/$/, "").replace(/\/api$/, "")}/api${path}`,
       {
         ...init,
         headers: {
@@ -165,7 +167,7 @@ async function req<T>(
             Array.isArray(
               body.message,
             )
-              ? body.message[0]!
+              ? body.message.join(" · ")
               : body.message;
         }
       } catch {
@@ -174,6 +176,8 @@ async function req<T>(
          * qui n'est pas du JSON.
          */
       }
+
+      if (res.status === 401 && path !== "/auth/login") setSession(null);
 
       throw new HttpError(
         res.status,
@@ -540,251 +544,60 @@ export const api = {
     );
   },
 
-  /**
-   * GET
-   * /logements/{id}/calendrier
-   * ?month=YYYY-MM
-   */
-  calendrier: async (
-    id: string,
-    mois: string,
-  ) => {
-    const list =
-      await req<ApiReservation[]>(
-        `/logements/${id}/calendrier${qs(
-          {
-            month: mois,
-          },
-        )}`,
-      );
+  // Protected operator calendar reads the reservation endpoint, not the public calendar.
+  calendrier: async (id: string, _mois: string) => fetchReservations({ logementId: id }),
 
-    return (
-      Array.isArray(list)
-        ? list
-        : []
-    ).map(mapReservation);
-  },
-
-  /**
-   * ============================
-   * RESERVATIONS
-   * ============================
-   */
-
-  createReservation: async (
-    payload: Record<
-      string,
-      unknown
-    >,
-  ) => {
-    const client =
-      payload["client"] as
-        | Parameters<
-            typeof ensureClient
-          >[0]
-        | undefined;
-
-    const clientId =
-      (payload[
-        "client_id"
-      ] as string | undefined) ??
-      (await ensureClient(
-        client ?? {
-          nom_complet:
-            String(
-              payload[
-                "client_nom"
-              ] ??
-                "Client",
-            ),
-
-          telephone:
-            String(
-              payload[
-                "client_telephone"
-              ] ?? "",
-            ),
-        },
-      ));
-
-    const created =
-      await req<ApiReservation>(
-        "/reservations",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            logementId:
-              payload[
-                "logement_id"
-              ],
-
-            clientId,
-
-            dateDebut: combiner(
-              String(payload["date_arrivee"]),
-              String(
-                payload["heure_arrivee"] ??
-                  HEURE_ARRIVEE_DEFAUT,
-              ),
-            ),
-
-            dateFin: combiner(
-              String(payload["date_depart"]),
-              String(
-                payload["heure_depart"] ??
-                  HEURE_DEPART_DEFAUT,
-              ),
-            ),
-
-            ...(payload[
-              "nombre_personnes"
-            ]
-              ? {
-                  personnes:
-                    Number(
-                      payload[
-                        "nombre_personnes"
-                      ],
-                    ),
-                }
-              : {}),
-
-            ...(payload["motif"]
-              ? {
-                  motif:
-                    String(
-                      payload[
-                        "motif"
-                      ],
-                    ),
-                }
-              : {}),
-
-            ...(payload[
-              "provenance"
-            ]
-              ? {
-                  provenance:
-                    String(
-                      payload[
-                        "provenance"
-                      ],
-                    ),
-                }
-              : {}),
-
-            ...(payload[
-              "destination"
-            ]
-              ? {
-                  destination:
-                    String(
-                      payload[
-                        "destination"
-                      ],
-                    ),
-                }
-              : {}),
-
-            ...(payload["montant_total"]
-              ? {
-                  montantTotal: Number(payload["montant_total"]),
-                }
-              : {}),
-
-            /**
-             * Réservation saisie au comptoir : le client est
-             * déjà sur place, il n'y a donc pas de délai de
-             * confirmation à distance. L'API exige néanmoins
-             * une date antérieure au début du séjour : on
-             * envoie l'instant d'arrivée moins une minute.
-             */
-            origine: "sur_place",
-
-            dateLimiteConfirmation: new Date(
-              new Date(
-                combiner(
-                  String(payload["date_arrivee"]),
-                  String(
-                    payload["heure_arrivee"] ??
-                      HEURE_ARRIVEE_DEFAUT,
-                  ),
-                ),
-              ).getTime() - 60000,
-            ).toISOString(),
-
-            statut:
-              payload[
-                "statut"
-              ] ===
-              "en_attente"
-                ? "en_attente"
-                : "confirmee",
-          }),
-
-        },
-      );
-
-    const reservation =
-      mapReservation(
-        created,
-      );
-
-    /**
-     * Si une avance a été saisie,
-     * on l'enregistre également
-     * dans la vraie API.
-     */
-    const avance =
-      Number(
-        payload[
-          "montant_verse"
-        ] ?? 0,
-      );
-
-    if (
-      avance > 0 &&
-      reservation.id
-    ) {
-      await req(
-        "/paiements",
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-            reservationId:
-              reservation.id,
-
-            montant: avance,
-
-            mode: "especes",
-
-            datePaiement:
-              new Date().toISOString(),
-          }),
-        },
-      );
-
-      /**
-       * On recharge la réservation
-       * depuis la base afin de récupérer
-       * les montants actualisés.
-       */
-      const updated =
-        await req<ApiReservation>(
-          `/reservations/${reservation.id}`,
-        );
-
-      return mapReservation(
-        updated,
-      );
+  createReservation: async (payload: Record<string, unknown>) => {
+    const startDay = String(payload["date_arrivee"] ?? "");
+    const startTime = String(payload["heure_arrivee"] ?? HEURE_ARRIVEE_DEFAUT);
+    const endDay = String(payload["date_depart"] ?? "");
+    const endTime = String(payload["heure_depart"] ?? HEURE_DEPART_DEFAUT);
+    validateStay(startDay, startTime, endDay, endTime);
+    const deadline = confirmationIso(String(payload["date_limite_confirmation"] ?? ""), startDay, startTime);
+    const total = negotiatedTotal(payload["montant_total"]);
+    const advance = Number(payload["montant_verse"] ?? 0);
+    if (!Number.isFinite(advance) || advance < 0 || (total !== undefined && advance > total)) {
+      throw new Error("L'avance doit être positive ou nulle et ne pas dépasser le montant convenu.");
     }
-
+    const token = getToken();
+    if (!token) throw new HttpError(401, "Connectez-vous pour enregistrer une réservation.");
+    const client = payload["client"] as Parameters<typeof ensureClient>[0] | undefined;
+    const clientId = (payload["client_id"] as string | undefined) || await ensureClient(client ?? {
+      nom_complet: String(payload["client_nom"] ?? ""), telephone: String(payload["client_telephone"] ?? ""),
+    });
+    const created = await req<ApiReservation>("/reservations", {
+      method: "POST",
+      body: JSON.stringify({
+        logementId: payload["logement_id"], clientId,
+        dateDebut: combiner(startDay, startTime), dateFin: combiner(endDay, endTime),
+        dateLimiteConfirmation: deadline, origine: "sur_place",
+        ...(total !== undefined ? { montantTotal: total } : {}),
+        ...(payload["nombre_personnes"] ? { personnes: Number(payload["nombre_personnes"]) } : {}),
+        ...(payload["motif"] ? { motif: String(payload["motif"]) } : {}),
+        ...(payload["provenance"] ? { provenance: String(payload["provenance"]) } : {}),
+        ...(payload["destination"] ? { destination: String(payload["destination"]) } : {}),
+        statut: payload["statut"] === "en_attente" ? "en_attente" : "confirmee",
+      }),
+    });
+    const reservation = mapReservation(created);
+    if (!reservation.id) throw new Error("Réponse API invalide : identifiant de réservation absent. Vérifiez la liste avant de réessayer.");
+    if (advance > 0) {
+      try {
+        return await api.addPaiement(reservation.id, {
+          montant: advance, date_paiement: new Date().toISOString(), agent: String(payload["agent"] ?? ""),
+        });
+      } catch (error) {
+        throw new ReservationCreatedError(reservation, error instanceof Error ? error.message : "Encaissement impossible");
+      }
+    }
     return reservation;
   },
 
 updateReservation: async (id: string, patch: Partial<Reservation>) => {
+  if (patch.date_arrivee && patch.date_depart) {
+    validateStay(patch.date_arrivee, patch.heure_arrivee ?? HEURE_ARRIVEE_DEFAUT, patch.date_depart, patch.heure_depart ?? HEURE_DEPART_DEFAUT);
+  }
+  if (patch.montant_total !== undefined) negotiatedTotal(patch.montant_total);
   const updated = await req<ApiReservation>(`/reservations/${id}`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -864,9 +677,7 @@ updateReservation: async (id: string, patch: Partial<Reservation>) => {
           mode: "especes",
 
           datePaiement:
-            new Date(
-              p.date_paiement,
-            ).toISOString(),
+            p.date_paiement.includes("T") ? p.date_paiement : combiner(p.date_paiement, "12:00"),
         }),
       },
     );
@@ -1152,6 +963,7 @@ marquerToutesNotificationsLues: async () => {
     nombre_personnes?: number;
     client: Partial<Client>;
   }): Promise<{ reservation?: Reservation; note_pdf_url?: string }> => {
+    validateStay(payload.date_arrivee, payload.heure_arrivee, payload.date_depart, payload.heure_depart);
     const r = await req<Brut>("/reservations/public", {
       method: "POST",
       body: JSON.stringify({
@@ -1161,7 +973,7 @@ marquerToutesNotificationsLues: async () => {
         logementId: payload.logement_id,
         dateDebut: combiner(payload.date_arrivee, payload.heure_arrivee),
         dateFin: combiner(payload.date_depart, payload.heure_depart),
-        dateLimiteConfirmation: payload.date_limite_confirmation,
+        dateLimiteConfirmation: confirmationIso(payload.date_limite_confirmation, payload.date_arrivee, payload.heure_arrivee),
         ...(payload.nombre_personnes ? { nombrePersonnes: payload.nombre_personnes } : {}),
       }),
     });
@@ -1254,13 +1066,8 @@ marquerToutesNotificationsLues: async () => {
     return {
       token,
 
-      role: (
-        r.role ??
-        r.user?.role ??
-        "gerant"
-      ) as
-        | "gerant"
-        | "proprietaire",
+      // Never grant manager permissions when the API omits the role.
+      role: r.role ?? r.user?.role ?? "inconnu",
 
       nom_complet:
         r.nom_complet ??
@@ -1270,6 +1077,12 @@ marquerToutesNotificationsLues: async () => {
     };
   },
 };
+
+export class ReservationCreatedError extends Error {
+  constructor(public reservation: Reservation, detail: string) {
+    super(`Réservation ${reservation.id} créée, mais paiement non confirmé : ${detail}. Ne recréez pas la réservation; vérifiez ses encaissements avant de réessayer.`);
+  }
+}
 
 /**
  * Formatage des montants en FCFA.

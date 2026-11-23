@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { BellRing, CheckCheck, Clock, Globe, MailOpen } from "lucide-react";
@@ -12,8 +13,12 @@ import { useAuth } from "@/lib/auth";
 import type { NotificationItem, Reservation } from "@/lib/types";
 
 export const Route = createFileRoute("/notifications")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Centre de notifications — KN Residence" },
       {
         name: "description",

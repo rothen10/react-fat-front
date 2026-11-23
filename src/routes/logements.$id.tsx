@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
@@ -33,14 +34,22 @@ import {
   HEURE_DEPART_DEFAUT,
   creneau,
   seChevauchent,
+  instant,
+  jourDe,
 } from "@/lib/dates";
-import { api, fcfa } from "@/lib/api";
+import { confirmationIso } from "@/lib/reservation-rules";
+import { canManageReservations } from "@/lib/session";
+import { api, fcfa, ReservationCreatedError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Reservation, StatutReservation } from "@/lib/types";
 
 export const Route = createFileRoute("/logements/$id")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Calendrier du logement — KN Residence" },
       {
         name: "description",
@@ -81,6 +90,7 @@ const nuits = (a: string, b: string) =>
 function LogementDetail() {
   const { id } = Route.useParams();
   const { session } = useAuth();
+  const gerant = canManageReservations(session?.role);
   const qc = useQueryClient();
   const [curseur, setCurseur] = useState(() => new Date());
   const [selection, setSelection] = useState<{ debut?: string; fin?: string }>({});
@@ -93,7 +103,7 @@ function LogementDetail() {
     queryKey: ["logement", id],
     queryFn: () => api.getLogement(id),
   });
-  const { data: reservations = [] } = useQuery({
+  const { data: reservations = [], error: calendarError } = useQuery({
     queryKey: ["calendrier", id, mois],
     queryFn: () => api.calendrier(id, mois),
   });
@@ -103,6 +113,10 @@ function LogementDetail() {
     void qc.invalidateQueries({ queryKey: ["logements"] });
     void qc.invalidateQueries({ queryKey: ["stats"] });
     void qc.invalidateQueries({ queryKey: ["dettes"] });
+    void qc.invalidateQueries({ queryKey: ["reservation"] });
+    void qc.invalidateQueries({ queryKey: ["reservations-client"] });
+    void qc.invalidateQueries({ queryKey: ["paiements"] });
+    void qc.invalidateQueries({ queryKey: ["paiements-resume"] });
   };
 
   const jours = useMemo(() => {
@@ -116,18 +130,17 @@ function LogementDetail() {
     return cases;
   }, [curseur]);
 
-  const reservationDuJour = (jour: string) =>
-    reservations.find((r) => r.date_arrivee <= jour && r.date_depart > jour);
+  const reservationsDuJour = (jour: string) => {
+    const start = instant(jour, "00:00");
+    return reservations.filter((r) => seChevauchent(
+      { debut: start, fin: start + 86400000 },
+      creneau(r.date_arrivee, r.heure_arrivee, r.date_depart, r.heure_depart),
+    ));
+  };
 
   function cliquerJour(jour: string) {
-    const r = reservationDuJour(jour);
-    if (r) {
-      setDetail(r);
-      return;
-    }
-    if (!selection.debut || (selection.debut && selection.fin)) {
-      setSelection({ debut: jour });
-    } else if (jour <= selection.debut) {
+    if (!gerant) return;
+    if (!selection.debut || selection.fin || jour < selection.debut) {
       setSelection({ debut: jour });
     } else {
       setSelection({ debut: selection.debut, fin: jour });
@@ -235,58 +248,35 @@ function LogementDetail() {
                 </div>
               ))}
             </div>
+            {calendarError ? <p role="alert" className="mb-3 text-sm text-destructive">{calendarError.message}</p> : null}
             <div className="grid grid-cols-7 gap-1.5">
-              {jours.map((jour, i) =>
-                jour === null ? (
-                  <div key={`v-${i}`} />
-                ) : (
-                  <button
-                    key={jour}
-                    type="button"
-                    onClick={() => cliquerJour(jour)}
-                    aria-current={jour === iso(new Date()) ? "date" : undefined}
-                    className={`relative flex min-h-16 flex-col items-start rounded-lg border border-border p-1.5 text-left text-xs transition-colors hover:border-primary ${
-                      jour === iso(new Date())
-                        ? "border-primary ring-2 ring-primary/70 ring-offset-1 ring-offset-background"
-                        : ""
-                    } ${
-                      reservationDuJour(jour)
-                        ? COULEUR_CLASSES[couleurReservation(reservationDuJour(jour)!)]
-                        : dansSelection(jour)
-                          ? "bg-primary/15 ring-1 ring-inset ring-primary"
-                          : "bg-card"
-                    }`}
-                  >
-                    <span
-                      className={
-                        jour === iso(new Date())
-                          ? "rounded-md bg-primary px-1.5 font-semibold text-primary-foreground"
-                          : "font-medium"
-                      }
-                    >
-                      {Number(jour.slice(8))}
-                    </span>
-                    {reservationDuJour(jour)?.date_arrivee === jour ? (
-                      <span className="mt-auto line-clamp-2 leading-tight">
-                        {reservationDuJour(jour)?.client_nom}
-                      </span>
-                    ) : null}
-                  </button>
-
-                ),
-              )}
+              {jours.map((jour, i) => jour === null ? <div key={`v-${i}`} /> : (
+                <div key={jour} className={`min-h-28 min-w-0 rounded-md border border-border bg-card p-1 ${jour === jourDe(new Date()) ? "ring-2 ring-primary" : ""} ${dansSelection(jour) ? "bg-primary/15" : ""}`}>
+                  <Button variant="ghost" size="sm" className="h-7 w-full px-1 text-xs" disabled={!gerant} aria-label={`Sélectionner le ${jour}`} aria-current={jour === jourDe(new Date()) ? "date" : undefined} onClick={() => cliquerJour(jour)}>
+                    {Number(jour.slice(8))}
+                  </Button>
+                  <div className="mt-1 space-y-1">
+                    {reservationsDuJour(jour).map((r) => (
+                      <Button key={r.id} variant="ghost" aria-label={`Détails ${r.client_nom} ${jour}`} onClick={() => setDetail(r)} className={`h-auto w-full min-w-0 flex-col items-start whitespace-normal rounded-sm px-1 py-1 text-left text-xs ${COULEUR_CLASSES[couleurReservation(r)]}`}>
+                        <span className="w-full truncate">{r.client_nom}</span>
+                        <span className="w-full break-words font-normal">{r.date_arrivee === jour ? `Arr. ${r.heure_arrivee}` : "Séjour"}{r.date_depart === jour ? ` · Dép. ${r.heure_depart}` : ""}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <Legende />
-              <Button
+              {gerant ? <Button
                 onClick={() => {
                   setSelection({ debut: iso(new Date()), fin: iso(new Date(Date.now() + 86400000)) });
                   setFormOuvert(true);
                 }}
               >
                 <Plus className="size-4" /> Nouvelle réservation
-              </Button>
+              </Button> : null}
             </div>
             {selection.debut && !selection.fin ? (
               <p className="mt-3 text-sm text-muted-foreground">
@@ -297,7 +287,7 @@ function LogementDetail() {
         </section>
       </div>
 
-      <FormulaireReservation
+      {gerant ? <FormulaireReservation
         ouvert={formOuvert}
         onOpenChange={(o) => {
           setFormOuvert(o);
@@ -309,11 +299,12 @@ function LogementDetail() {
         fin={selection.fin ?? iso(new Date(Date.now() + 86400000))}
         existantes={reservations}
         agent={session?.nom ?? ""}
-        onSaved={() => {
+        onSaved={(r) => {
           invalider();
           setSelection({});
+          if (r) setDetail(r);
         }}
-      />
+      /> : null}
 
       <PanneauReservation
         reservation={detail}
@@ -374,9 +365,10 @@ function FormulaireReservation({
   fin: string;
   existantes: Reservation[];
   agent: string;
-  onSaved: () => void;
+  onSaved: (reservation?: Reservation) => void;
 }) {
   const [clientId, setClientId] = useState("");
+  const [partielle, setPartielle] = useState<Reservation | null>(null);
   const [nouveauClient, setNouveauClient] = useState(false);
   const [form, setForm] = useState({
 
@@ -387,7 +379,8 @@ function FormulaireReservation({
     heureArrivee: HEURE_ARRIVEE_DEFAUT,
     depart: fin,
     heureDepart: HEURE_DEPART_DEFAUT,
-    total: String(tarif * nuits(debut, fin)),
+    total: "",
+    limite: `${debut}T11:59`,
     verse: "0",
     agent,
     statut: "en_attente" as StatutReservation,
@@ -404,17 +397,21 @@ function FormulaireReservation({
   const cle = `${ouvert}-${debut}-${fin}`;
   if (ouvert && cle !== derniereCle) {
     setDerniereCle(cle);
+    setPartielle(null);
     setForm((f) => ({
       ...f,
       arrivee: debut,
       depart: fin,
-      total: String(tarif * nuits(debut, fin)),
+      total: "",
+      limite: `${debut}T11:59`,
       agent,
     }));
   }
 
   const creneauForm = creneau(form.arrivee, form.heureArrivee, form.depart, form.heureDepart);
-  const creneauInvalide = creneauForm.fin <= creneauForm.debut;
+  const creneauInvalide = !Number.isFinite(creneauForm.fin) || !Number.isFinite(creneauForm.debut) || creneauForm.fin <= creneauForm.debut;
+  let limiteInvalide = false;
+  try { confirmationIso(form.limite, form.arrivee, form.heureArrivee); } catch { limiteInvalide = true; }
   const chevauchement = existantes.some(
     (r) =>
       r.statut !== "annulee" &&
@@ -443,7 +440,8 @@ function FormulaireReservation({
         heure_arrivee: form.heureArrivee,
         date_depart: form.depart,
         heure_depart: form.heureDepart,
-        montant_total: Number(form.total),
+        ...(form.total.trim() ? { montant_total: Number(form.total) } : {}),
+        date_limite_confirmation: form.limite,
         montant_verse: Number(form.verse),
         statut: form.statut,
         agent: form.agent,
@@ -452,7 +450,7 @@ function FormulaireReservation({
         destination: form.destination,
       }),
 
-    onSuccess: () => {
+    onSuccess: (r) => {
       toast.success("Réservation enregistrée");
       setClientId("");
       setNouveauClient(false);
@@ -474,19 +472,21 @@ function FormulaireReservation({
       }));
       setDerniereCle("");
       onOpenChange(false);
-      onSaved();
+      onSaved(r);
     },
-    onError: (e: Error) => toast.error(e.message || "Enregistrement impossible"),
+    onError: (e: Error) => {
+      if (e instanceof ReservationCreatedError) setPartielle(e.reservation);
+      toast.error(e.message || "Enregistrement impossible");
+    },
   });
 
   const totalNum = Number(form.total);
   const verseNum = Number(form.verse);
   const montantsInvalides =
-    !Number.isFinite(totalNum) ||
-    totalNum <= 0 ||
+    (form.total.trim() !== "" && (!Number.isFinite(totalNum) || totalNum <= 0)) ||
     !Number.isFinite(verseNum) ||
     verseNum < 0 ||
-    verseNum > totalNum;
+    (form.total.trim() !== "" && verseNum > totalNum);
   const personnesInvalide = !(Number(form.personnes) >= 1);
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -574,10 +574,7 @@ function FormulaireReservation({
             label="Date d'arrivée"
             type="date"
             value={form.arrivee}
-            onChange={(v) => {
-              set("arrivee", v);
-              set("total", String(tarif * nuits(v, form.depart)));
-            }}
+            onChange={(v) => set("arrivee", v)}
           />
           <Champ
             label="Heure d'arrivée"
@@ -589,10 +586,7 @@ function FormulaireReservation({
             label="Date de départ"
             type="date"
             value={form.depart}
-            onChange={(v) => {
-              set("depart", v);
-              set("total", String(tarif * nuits(form.arrivee, v)));
-            }}
+            onChange={(v) => set("depart", v)}
           />
           <Champ
             label="Heure de départ"
@@ -600,8 +594,10 @@ function FormulaireReservation({
             value={form.heureDepart}
             onChange={(v) => set("heureDepart", v)}
           />
+          <Champ label="Date limite de confirmation" type="datetime-local" value={form.limite} onChange={(v) => set("limite", v)} />
+          <p className="text-xs text-muted-foreground">La date limite doit être strictement antérieure à l’arrivée. Horaires de Douala (UTC+01:00).</p>
           <Champ
-            label={`Montant total (${nuits(form.arrivee, form.depart)} nuit(s))`}
+            label="Montant total convenu (XAF)"
             type="number"
             value={form.total}
             onChange={(v) => set("total", v)}
@@ -629,6 +625,10 @@ function FormulaireReservation({
           </div>
         </div>
 
+        <p className="text-sm text-muted-foreground">Tarif indicatif : {fcfa(tarif * nuits(form.arrivee, form.depart))}. Sans montant convenu, le prix est calculé par l’API.</p>
+        {m.error ? <p role="alert" className="text-sm text-destructive">{m.error.message}</p> : null}
+        {partielle ? <Button variant="outline" onClick={() => { onOpenChange(false); onSaved(partielle); }}>Consulter la réservation créée</Button> : null}
+        {limiteInvalide ? <p role="alert" className="text-sm text-destructive">La date limite de confirmation doit être avant le début du séjour.</p> : null}
         {creneauInvalide ? (
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             Le départ doit être postérieur à l'arrivée (heures comprises).
@@ -661,7 +661,8 @@ function FormulaireReservation({
           </Button>
           <Button
             disabled={
-              chevauchement ||
+              !!partielle ||
+              limiteInvalide ||
               creneauInvalide ||
               montantsInvalides ||
               personnesInvalide ||
@@ -691,8 +692,8 @@ function Champ({
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={label}>{label}</Label>
+      <Input id={label} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { LogIn, MapPin, Moon, Sun } from "lucide-react";
 import { api, fcfa } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { ReservationPublique } from "@/components/ReservationPublique";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ type Filtre = "tous" | "appartement" | "studio";
 
 function EspaceCommun() {
   const { theme, toggle } = useTheme();
+  const { session, signOut } = useAuth();
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [choisi, setChoisi] = useState<Logement | null>(null);
 
@@ -66,10 +68,11 @@ function EspaceCommun() {
               {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
             <Button asChild variant="secondary" size="sm">
-              <Link to="/login">
-                <LogIn className="size-4" /> Sign in
+              <Link to={session ? "/logements" : "/login"}>
+                <LogIn className="size-4" /> {session ? "Espace personnel" : "Sign in"}
               </Link>
             </Button>
+            {session ? <Button variant="ghost" size="sm" onClick={() => void signOut()}>Se déconnecter</Button> : null}
           </div>
         </div>
       </header>

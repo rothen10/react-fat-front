@@ -17,7 +17,7 @@ import type {
   Reservation,
   StatutReservation,
 } from "./types";
-import { HEURE_ARRIVEE_DEFAUT, HEURE_DEPART_DEFAUT, heureDe } from "./dates";
+import { HEURE_ARRIVEE_DEFAUT, HEURE_DEPART_DEFAUT, heureDe, jourDe } from "./dates";
 
 export type Brut = Record<string, unknown>;
 export type ApiLogement = Brut;
@@ -146,8 +146,8 @@ export function mapReservation(r: ApiReservation): Reservation {
   const paiements = (Array.isArray(rawPaiements) ? (rawPaiements as Brut[]) : []).map(mapPaiement);
   const brutArrivee = pick(r, "arriveeAt", "dateDebut", "date_arrivee", "dateArrivee", "date_debut");
   const brutDepart = pick(r, "departAt", "dateFin", "date_depart", "dateDepart", "date_fin");
-  const arrivee = jour(brutArrivee);
-  const depart = jour(brutDepart);
+  const arrivee = brutArrivee ? jourDe(String(brutArrivee)) : "";
+  const depart = brutDepart ? jourDe(String(brutDepart)) : "";
   const heureArrivee = heureDe(
     brutArrivee ? String(brutArrivee) : undefined,
     HEURE_ARRIVEE_DEFAUT,
@@ -179,7 +179,7 @@ export function mapReservation(r: ApiReservation): Reservation {
     date_depart: depart,
     heure_arrivee: heureArrivee,
     heure_depart: heureDepart,
-    date_limite_confirmation: limite ? jour(limite) : undefined,
+    date_limite_confirmation: limite ? String(limite) : undefined,
     origine: /ligne|online|public|web/.test(origineBrute)
       ? "en_ligne"
       : origineBrute

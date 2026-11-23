@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -13,7 +14,15 @@ import {
 import { api, fcfa } from "@/lib/api";
 
 export const Route = createFileRoute("/paiements")({
-  head: () => ({ /* ...inchangé... */ }),
+  ssr: false,
+  beforeLoad: requireSession,
+  head: () => ({ meta: [
+    { title: "Journal des paiements — KN Residence" },
+    { name: "description", content: "Encaissements et soldes des réservations KN Residence." },
+    { property: "og:title", content: "Journal des paiements — KN Residence" },
+    { property: "og:description", content: "Suivez les paiements reçus à KN Residence." },
+    { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" },
+  ] }),
   component: PaiementsPage,
 });
 

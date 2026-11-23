@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -27,8 +28,12 @@ import { api, fcfa } from "@/lib/api";
 import type { Client } from "@/lib/types";
 
 export const Route = createFileRoute("/clients")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Clients fidèles — KN Residence" },
       {
         name: "description",

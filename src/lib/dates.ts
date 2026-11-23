@@ -12,31 +12,32 @@ export const HEURE_DEPART_DEFAUT = "14:00";
 /** Jour (YYYY-MM-DD) d'une valeur ISO ou date. */
 export const jourDe = (v: string | Date): string =>
   typeof v === "string"
-    ? v.slice(0, 10)
-    : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
+    ? (/T/.test(v) ? dateAuLieu(v).jour : v.slice(0, 10))
+    : dateAuLieu(v.toISOString()).jour;
+
+/** Douala n'observe pas de changement saisonnier : UTC+01:00 toute l'année. */
+export function dateAuLieu(value: string): { jour: string; heure: string } {
+  if (!/T/.test(value)) return { jour: value.slice(0, 10), heure: "" };
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}+01:00`;
+  const ts = Date.parse(normalized);
+  if (!Number.isFinite(ts)) return { jour: "", heure: "" };
+  const local = new Date(ts + 3600000).toISOString();
+  return { jour: local.slice(0, 10), heure: local.slice(11, 16) };
+}
 
 /** Heure HH:mm d'une valeur ISO. Renvoie `def` si absente. */
 export function heureDe(v: string | undefined, def: string): string {
   if (!v) return def;
-  const m = /T(\d{2}):(\d{2})/.exec(v);
-  return m ? `${m[1]}:${m[2]}` : def;
-}
-
-/** Décalage local au format ±HH:MM. */
-function offsetLocal(d: Date): string {
-  const min = -d.getTimezoneOffset();
-  const signe = min >= 0 ? "+" : "-";
-  const abs = Math.abs(min);
-  return `${signe}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  return dateAuLieu(v).heure || def;
 }
 
 /** Assemble un jour et une heure en ISO local (2026-09-20T12:00:00+01:00). */
 export function combiner(jour: string, heure: string): string {
-  const h = /^\d{2}:\d{2}$/.test(heure) ? heure : HEURE_ARRIVEE_DEFAUT;
-  const [Y, M, D] = jour.split("-").map(Number);
-  const [hh, mm] = h.split(":").map(Number);
-  const d = new Date(Y!, (M ?? 1) - 1, D ?? 1, hh ?? 12, mm ?? 0, 0);
-  return `${jour}T${h}:00${offsetLocal(d)}`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(jour) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(heure)) return "";
+  const iso = `${jour}T${heure}:00+01:00`;
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts) || new Date(ts + 3600000).toISOString().slice(0, 10) !== jour) return "";
+  return iso;
 }
 
 /** Horodatage numérique d'un couple jour + heure. */

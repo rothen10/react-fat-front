@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useState } from "react";
@@ -28,8 +29,12 @@ import { api, fcfa } from "@/lib/api";
 const RevenusChart = lazy(() => import("@/components/RevenusChart"));
 
 export const Route = createFileRoute("/dashboard")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Tableau de bord — KN Residence" },
       {
         name: "description",

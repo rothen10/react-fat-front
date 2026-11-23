@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/private-route";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -8,8 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/logements/")({
+  ssr: false,
+  beforeLoad: requireSession,
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Logements — KN Residence" },
       {
         name: "description",

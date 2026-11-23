@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
-    if (ready && !session) void navigate({ to: "/login" });
+    if (ready && !session) void navigate({ to: "/login", replace: true });
   }, [ready, session, navigate]);
 
   if (!ready || !session) return null;
@@ -90,9 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               size="icon"
               aria-label="Se déconnecter"
               className="text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => {
-                signOut();
-                void navigate({ to: "/" });
+              onClick={async () => {
+                await signOut();
+                void navigate({ to: "/login", replace: true });
               }}
             >
               <LogOut className="size-4" />
